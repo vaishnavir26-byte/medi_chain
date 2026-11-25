@@ -156,7 +156,7 @@ Start the web application and REST API server:
 ```bash
 python3 run_healthcare.py
 ```
-Open **[http://localhost:8085](http://localhost:8085)** in any modern web browser to access:
+Open **[https://medichain-consent.netlify.app](https://medichain-consent.netlify.app)** in any modern web browser to access:
 - **Patient Portal:** Grant permissions, set durations, revoke access, and review personal access trails.
 - **Doctor / Provider Portal:** Request access, inspect clinical records, and submit clinical updates.
 - **Auditor Console:** Inspect master audit logs, explore blocks, verify ledger integrity, and test off-chain tamper detection.
