@@ -1,0 +1,4 @@
+# MediChain — Healthcare Consent & Cryptographic Audit Log
+# Pure Python Standard Library implementation.
+# No external pip dependencies required.
+# Compatible with Python 3.9, 3.10, 3.11, 3.12, 3.13, 3.14, 3.15+
