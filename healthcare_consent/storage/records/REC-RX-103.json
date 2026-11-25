@@ -1,0 +1,23 @@
+{
+  "record_id": "REC-RX-103",
+  "patient_id": "P-101",
+  "category": "PRESCRIPTIONS",
+  "title": "Outpatient Maintenance Pharmacotherapy",
+  "clinical_data": {
+    "pharmacy": "Apex Clinical Pharmacy",
+    "prescriptions": [
+      {
+        "drug_name": "Loratadine",
+        "strength": "10 mg",
+        "form": "Oral Tablet",
+        "directions": "Take 1 tablet daily by mouth as needed for seasonal allergies",
+        "refills_remaining": 3,
+        "prescribed_by": "DOC-201 (Dr. Sarah Carter)"
+      }
+    ]
+  },
+  "created_at": 1795527472.983885,
+  "updated_at": 1795527472.983885,
+  "version": 1,
+  "sha256_hash": "9a0a821f78f53f44a96c428c0cd2ee73187d5a39007549a18f7fb1f2c8e7273c"
+}

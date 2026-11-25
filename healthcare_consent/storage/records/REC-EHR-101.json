@@ -1,0 +1,29 @@
+{
+  "record_id": "REC-EHR-101",
+  "patient_id": "P-101",
+  "category": "EHR_GENERAL",
+  "title": "Comprehensive Health Assessment & Baseline",
+  "clinical_data": {
+    "vitals": {
+      "blood_pressure": "118/76 mmHg",
+      "heart_rate": "72 bpm",
+      "bmi": 22.4,
+      "temp": "98.6 F"
+    },
+    "allergies": [
+      "Penicillin (Severe - Anaphylaxis)",
+      "Sulfa antibiotics"
+    ],
+    "chronic_conditions": [
+      "Mild Seasonal Allergic Rhinitis"
+    ],
+    "surgical_history": [
+      "Appendectomy (2014)"
+    ],
+    "clinical_notes": "Patient presents in excellent overall health. Cardiovascular, pulmonary, and neurological exams normal."
+  },
+  "created_at": 1795354672.983885,
+  "updated_at": 1795354672.983885,
+  "version": 1,
+  "sha256_hash": "7d3181ad2e7c1b5198b7d4329d2547e3f5f421a62a6d6d981a99fe5031200786"
+}

@@ -1,0 +1,21 @@
+{
+  "record_id": "REC-LAB-102",
+  "patient_id": "P-101",
+  "category": "LAB_REPORTS",
+  "title": "Complete Blood Count (CBC) & Lipid Panel",
+  "clinical_data": {
+    "laboratory": "BioCore Diagnostic Labs",
+    "specimen_type": "Venous Whole Blood",
+    "fasting_glucose": "92 mg/dL (Ref: 70-99)",
+    "total_cholesterol": "184 mg/dL (Ref: <200)",
+    "hdl": "58 mg/dL (Ref: >50)",
+    "ldl": "108 mg/dL (Ref: <100)",
+    "hemoglobin_a1c": "5.3% (Normal)",
+    "wbc_count": "6.4 x10^3/uL",
+    "pathologist_remark": "Normal lipid profile and glycemic indices."
+  },
+  "created_at": 1795441072.983885,
+  "updated_at": 1795613872.984951,
+  "version": 2,
+  "sha256_hash": "8a2769e1334412c63c4393b1bd967db9f0db10405327fa8195fb7e7b2e208820"
+}

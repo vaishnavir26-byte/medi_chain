@@ -1,0 +1,19 @@
+{
+  "record_id": "REC-EHR-201",
+  "patient_id": "P-102",
+  "category": "EHR_GENERAL",
+  "title": "Endocrine Metabolic Follow-up",
+  "clinical_data": {
+    "vitals": {
+      "blood_pressure": "132/84 mmHg",
+      "heart_rate": "78 bpm",
+      "bmi": 27.2
+    },
+    "diagnosis": "Type 2 Diabetes Mellitus without complications",
+    "plan": "Continue lifestyle modification and Metformin therapy."
+  },
+  "created_at": 1795441072.983885,
+  "updated_at": 1795441072.983885,
+  "version": 1,
+  "sha256_hash": "d512d57cc36ae68455bbe927a5e204d907213afb1fdc8c214cc140df9d29fab1"
+}

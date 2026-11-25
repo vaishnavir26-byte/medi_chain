@@ -1,0 +1,16 @@
+{
+  "record_id": "REC-IMG-104",
+  "patient_id": "P-101",
+  "category": "IMAGING",
+  "title": "Chest Radiograph (PA & Lateral Views)",
+  "clinical_data": {
+    "radiology_facility": "St. Jude Diagnostic Imaging Center",
+    "technique": "Two-view upright posteroanterior and lateral chest radiography",
+    "findings": "Cardiothoracic ratio within normal limits (<0.5). Lungs clear without focal consolidation, pneumothorax, or pleural effusion.",
+    "radiologist_impression": "Unremarkable radiographic examination of the chest."
+  },
+  "created_at": 1795527472.983885,
+  "updated_at": 1795527472.983885,
+  "version": 1,
+  "sha256_hash": "975e5dd45b44c3e5f193b54ab21462c51e19a927e1378a9ba4a92cf8c9c964b9"
+}
