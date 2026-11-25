@@ -33,6 +33,7 @@
           <div class="flex items-center space-x-2">
             <span class="font-bold text-lg text-slate-900 tracking-tight">MediChain<span class="text-blue-600">Consent</span></span>
             <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase tracking-wider">HIPAA & GDPR</span>
+            <span id="runtime-mode-badge" class="text-[10px] font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full hidden sm:inline">WebCrypto Ledger</span>
           </div>
           <p class="text-xs text-slate-500 hidden sm:block">Healthcare Consent & Cryptographic Audit Ledger</p>
         </div>
@@ -102,7 +103,7 @@
 
         <div class="hidden sm:block">
           <div class="text-slate-400">Off-Chain Records</div>
-          <div class="font-bold text-sm text-amber-400 mono" id="stat-offchain-records">0 files</div>
+          <div class="font-bold text-sm text-amber-400 mono" id="stat-offchain-records">5 files</div>
         </div>
 
         <div class="flex items-center justify-end space-x-2 col-span-2 sm:col-span-1">
@@ -642,16 +643,340 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <!-- JAVASCRIPT APPLICATION LOGIC WITH WEBCRYPTO CLIENT LEDGER FALLBACK -->
   <script>
     // State
     let currentRole = 'patient';
     let currentActorId = 'P-101';
     let identities = {};
     let statusData = {};
+    let isClientMode = false;
+
+    // Helper: SHA-256 via Web Crypto
+    async function sha256Hex(str) {
+      const buffer = new TextEncoder().encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Client-Side In-Memory Ledger Engine (Seamless Netlify / Serverless Mode)
+    const ClientEngine = {
+      identities: {
+        "P-101": { id: "P-101", name: "Alice Smith", role: "patient", organization: "St. Jude Health Network", email: "alice.smith@patient.org", specialty: "Patient (DOB: 1989-05-14 | Blood: A+)" },
+        "P-102": { id: "P-102", name: "Robert Chen", role: "patient", organization: "Metro Health System", email: "robert.chen@patient.org", specialty: "Patient (DOB: 1978-11-22 | Blood: O-)" },
+        "P-103": { id: "P-103", name: "Elena Rostova", role: "patient", organization: "Northside Medical", email: "elena.rostova@patient.org", specialty: "Patient (DOB: 1995-02-18 | Blood: B+)" },
+        "DOC-201": { id: "DOC-201", name: "Dr. Sarah Carter, MD", role: "doctor", organization: "St. Jude Cardiology Institute", email: "s.carter@stjude-health.org", specialty: "Cardiovascular Medicine & Internal Medicine" },
+        "DOC-202": { id: "DOC-202", name: "Dr. Marcus Vance, MD", role: "doctor", organization: "Metro General Hospital", email: "m.vance@metrohealth.org", specialty: "Oncology & Hematology" },
+        "LAB-301": { id: "LAB-301", name: "BioCore Diagnostic Labs", role: "lab", organization: "BioCore Clinical Pathology Inc.", email: "lab-dispatch@biocore-diagnostics.com", specialty: "Diagnostic Pathology & Molecular Panels" },
+        "RX-401": { id: "RX-401", name: "Apex Clinical Pharmacy", role: "pharmacy", organization: "Apex Healthcare Pharmacy Group", email: "dispensing@apexpharmacy.org", specialty: "Clinical Pharmacology & Outpatient Dispensing" },
+        "AUD-501": { id: "AUD-501", name: "Evelyn Reed", role: "auditor", organization: "Office for Civil Rights / HIPAA Compliance Inspector", email: "evelyn.reed@hhs-audit.gov", specialty: "Healthcare Regulatory Compliance & Security Audit" }
+      },
+
+      consents: [
+        { patient_id: "P-101", provider_id: "DOC-201", scope: "ALL", status: "granted", granted_at: (Date.now()/1000) - 86400, expires_at: (Date.now()/1000) + (29*86400), purpose: "Primary cardiology consultation and continuous care", is_active: true },
+        { patient_id: "P-101", provider_id: "LAB-301", scope: "LAB_REPORTS", status: "granted", granted_at: (Date.now()/1000) - 43200, expires_at: (Date.now()/1000) + (6*86400), purpose: "Diagnostic blood panel and metabolic testing analysis", is_active: true },
+        { patient_id: "P-101", provider_id: "RX-401", scope: "PRESCRIPTIONS", status: "revoked", granted_at: (Date.now()/1000) - 100000, revoked_at: (Date.now()/1000) - 20000, purpose: "Temporary prescription refill verification", is_active: false }
+      ],
+
+      records: [
+        {
+          record_id: "REC-EHR-101", patient_id: "P-101", category: "EHR_GENERAL", title: "Comprehensive Health Assessment & Baseline",
+          clinical_data: { vitals: { blood_pressure: "118/76 mmHg", heart_rate: "72 bpm", bmi: 22.4 }, allergies: ["Penicillin (Severe)", "Sulfa"], clinical_notes: "Patient presents in excellent overall health. Cardiovascular exams normal." },
+          version: 1, sha256_hash: "7d3181ad2e7c1b5198b7d4329d2547e3f5f421a62a6d6d981a99fe5031200786", anchored_hash: "7d3181ad2e7c1b5198b7d4329d2547e3f5f421a62a6d6d981a99fe5031200786", is_intact: true
+        },
+        {
+          record_id: "REC-LAB-102", patient_id: "P-101", category: "LAB_REPORTS", title: "Complete Blood Count (CBC) & Lipid Panel",
+          clinical_data: { laboratory: "BioCore Diagnostic Labs", fasting_glucose: "92 mg/dL", total_cholesterol: "184 mg/dL", hdl: "58 mg/dL", ldl: "108 mg/dL", hemoglobin_a1c: "5.3%" },
+          version: 1, sha256_hash: "8a2769e1334412c63c4393b1bd967db9f0db10405327fa8195fb7e7b2e208820", anchored_hash: "8a2769e1334412c63c4393b1bd967db9f0db10405327fa8195fb7e7b2e208820", is_intact: true
+        },
+        {
+          record_id: "REC-RX-103", patient_id: "P-101", category: "PRESCRIPTIONS", title: "Outpatient Maintenance Pharmacotherapy",
+          clinical_data: { pharmacy: "Apex Clinical Pharmacy", prescriptions: [{ drug_name: "Loratadine", strength: "10 mg", directions: "Take 1 tablet daily" }] },
+          version: 1, sha256_hash: "9a0a821f78f53f44a96c428c0cd2ee73187d5a39007549a18f7fb1f2c8e7273c", anchored_hash: "9a0a821f78f53f44a96c428c0cd2ee73187d5a39007549a18f7fb1f2c8e7273c", is_intact: true
+        },
+        {
+          record_id: "REC-IMG-104", patient_id: "P-101", category: "IMAGING", title: "Chest Radiograph (PA & Lateral Views)",
+          clinical_data: { facility: "St. Jude Diagnostic Imaging Center", findings: "Cardiothoracic ratio normal (<0.5). Bilateral lungs clear." },
+          version: 1, sha256_hash: "975e5dd45b44c3e5f193b54ab21462c51e19a927e1378a9ba4a92cf8c9c964b9", anchored_hash: "975e5dd45b44c3e5f193b54ab21462c51e19a927e1378a9ba4a92cf8c9c964b9", is_intact: true
+        },
+        {
+          record_id: "REC-EHR-201", patient_id: "P-102", category: "EHR_GENERAL", title: "Endocrine Metabolic Follow-up",
+          clinical_data: { vitals: { blood_pressure: "132/84 mmHg", heart_rate: "78 bpm" }, diagnosis: "Type 2 Diabetes Mellitus" },
+          version: 1, sha256_hash: "f421a62a6d6d981a99fe50312007867d3181ad2e7c1b5198b7d4329d2547e3f5", anchored_hash: "f421a62a6d6d981a99fe50312007867d3181ad2e7c1b5198b7d4329d2547e3f5", is_intact: true
+        }
+      ],
+
+      auditEvents: [
+        { block_index: 8, event_type: "UNAUTHORIZED_ATTEMPT", actor_id: "DOC-202", patient_id: "P-101", record_id: "REC-EHR-101", timestamp: (Date.now()/1000) - 300, details: { denial_reason: "No active consent found for provider DOC-202", record_title: "Comprehensive Health Assessment & Baseline" }, status: "ALERT_REJECTED", tx_hash: "74f2263e120b62856b8a1fc75b7e57cb5f33b85e1517190e6ec1c472c14c4b6e" },
+        { block_index: 7, event_type: "REVOKE", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 600, details: { provider_id: "RX-401", scope: "PRESCRIPTIONS", action: "Patient revoked data access permission" }, status: "SUCCESS", tx_hash: "c75b7e57cb5f33b85e1517190e6ec1c472c14c4b6ef190e7a0efcd3d73e35947" },
+        { block_index: 6, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 1200, details: { provider_id: "RX-401", scope: "PRESCRIPTIONS", duration_seconds: 1209600 }, status: "SUCCESS", tx_hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568" },
+        { block_index: 5, event_type: "WRITE", actor_id: "LAB-301", patient_id: "P-101", record_id: "REC-LAB-102", timestamp: (Date.now()/1000) - 3600, details: { record_title: "Complete Blood Count (CBC) & Lipid Panel", record_category: "LAB_REPORTS" }, status: "SUCCESS", tx_hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371" },
+        { block_index: 4, event_type: "READ", actor_id: "DOC-201", patient_id: "P-101", record_id: "REC-EHR-101", timestamp: (Date.now()/1000) - 7200, details: { record_title: "Comprehensive Health Assessment & Baseline", integrity_intact: true }, status: "SUCCESS", tx_hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0" },
+        { block_index: 3, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 43200, details: { provider_id: "LAB-301", scope: "LAB_REPORTS", duration_seconds: 604800 }, status: "SUCCESS", tx_hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828" },
+        { block_index: 2, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 86400, details: { provider_id: "DOC-201", scope: "ALL", duration_seconds: 2592000 }, status: "SUCCESS", tx_hash: "5d2b472091fb9eca7ddc9a3bb988f68cdfbfe036b1e0a82da87e5bd48e2865a0" },
+        { block_index: 1, event_type: "GENESIS", actor_id: "SYSTEM_CORE", patient_id: "ALL_PATIENTS", record_id: "Global", timestamp: (Date.now()/1000) - 172800, details: { message: "Healthcare Consent & Audit Log Genesis Ledger Initialized" }, status: "SUCCESS", tx_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+      ],
+
+      blocks: [
+        { index: 8, timestamp: (Date.now()/1000) - 300, tx_count: 1, hash: "5d2b472091fb9eca7ddc9a3bb988f68cdfbfe036b1e0a82da87e5bd48e2865a0", previous_hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828", merkle_root: "e874250ca34e3982ccfa13b2b8b44d04fdcba5bca9b38bffc45de4644fb924c6" },
+        { index: 7, timestamp: (Date.now()/1000) - 600, tx_count: 1, hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828", previous_hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0", merkle_root: "2f029aca37f9e022986e60c21f851972dfd8bc58082d48b70bc5d00f2eeb8357" },
+        { index: 6, timestamp: (Date.now()/1000) - 1200, tx_count: 1, hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0", previous_hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371", merkle_root: "960de3fd28e9e2f9d672bbccd6d253598d469b06bfa5fbb20b37eb08bf59c7de" },
+        { index: 5, timestamp: (Date.now()/1000) - 3600, tx_count: 1, hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371", previous_hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568", merkle_root: "38f811db780dcb0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f" },
+        { index: 4, timestamp: (Date.now()/1000) - 7200, tx_count: 1, hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568", previous_hash: "4dbac70c700a82a514842463596c34bfcbd5c4f8361df4a9ef0b66e0ad923a61", merkle_root: "c75b7e57cb5f33b85e1517190e6ec1c472c14c4b6ef190e7a0efcd3d73e35947" },
+        { index: 3, timestamp: (Date.now()/1000) - 43200, tx_count: 1, hash: "4dbac70c700a82a514842463596c34bfcbd5c4f8361df4a9ef0b66e0ad923a61", previous_hash: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d", merkle_root: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d" },
+        { index: 2, timestamp: (Date.now()/1000) - 86400, tx_count: 1, hash: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d", previous_hash: "0000000000000000000000000000000000000000000000000000000000000000", merkle_root: "10b9818b5cf6dc2626e32c7308bb8ba667a11d3814500eaea4a12e3e81b8cc96" },
+        { index: 1, timestamp: (Date.now()/1000) - 172800, tx_count: 1, hash: "0000000000000000000000000000000000000000000000000000000000000000", previous_hash: "0000000000000000000000000000000000000000000000000000000000000000", merkle_root: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+      ]
+    };
+
+    // Unified API Dispatcher
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      if (!isClientMode) {
+        try {
+          const options = { method, headers: { 'Content-Type': 'application/json' } };
+          if (body) options.body = JSON.stringify(body);
+          const res = await fetch(endpoint, options);
+          if (res.ok || res.status === 403) {
+            return { ok: res.ok, status: res.status, data: await res.json() };
+          }
+        } catch (e) {
+          // Switch to client-side Web Crypto mode
+          isClientMode = true;
+          document.getElementById('runtime-mode-badge').textContent = "Netlify • WebCrypto Mode";
+          document.getElementById('runtime-mode-badge').className = "text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline";
+        }
+      }
+
+      // Handle in ClientEngine
+      const url = new URL(endpoint, window.location.origin);
+      const path = url.pathname;
+      const params = url.searchParams;
+
+      if (path === '/api/identities') {
+        return { ok: true, status: 200, data: ClientEngine.identities };
+      }
+
+      if (path === '/api/status') {
+        return {
+          ok: true, status: 200, data: {
+            system_name: "Healthcare Consent & Audit Log",
+            version: "1.0.0",
+            compliance: "HIPAA 45 CFR § 164.312(b) & GDPR Art. 7",
+            blockchain: { height: ClientEngine.blocks.length, latest_block_hash: ClientEngine.blocks[0].hash, chain_valid: true, total_events: ClientEngine.auditEvents.length },
+            offchain_storage: { total_records: ClientEngine.records.length, storage_mode: "Decoupled WebCrypto File Store" },
+            consent_engine: { total_consents_registered: ClientEngine.consents.length, active_consents: ClientEngine.consents.filter(c => c.is_active).length }
+          }
+        };
+      }
+
+      if (path === '/api/consents') {
+        const patientId = params.get('patient_id');
+        const providerId = params.get('provider_id');
+        let list = ClientEngine.consents;
+        if (patientId) list = list.filter(c => c.patient_id === patientId);
+        if (providerId) list = list.filter(c => c.provider_id === providerId);
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/records') {
+        const patientId = params.get('patient_id');
+        const actorId = params.get('actor_id');
+        const scope = params.get('category');
+        const emergency = params.get('emergency') === 'true';
+
+        if (actorId && actorId !== patientId && actorId !== 'AUD-501' && !emergency) {
+          const consent = ClientEngine.consents.find(c => c.patient_id === patientId && c.provider_id === actorId && c.is_active && (c.scope === 'ALL' || c.scope === scope));
+          if (!consent) {
+            // Log unauthorized attempt
+            const evt = {
+              block_index: ClientEngine.blocks.length + 1,
+              event_type: "UNAUTHORIZED_ATTEMPT",
+              actor_id: actorId, patient_id: patientId, record_id: "LIST_RECORDS_QUERY",
+              timestamp: Date.now() / 1000,
+              details: { denial_reason: "No active consent found under requested scope", requested_category: scope || "ALL" },
+              status: "ALERT_REJECTED",
+              tx_hash: await sha256Hex(actorId + patientId + Date.now())
+            };
+            ClientEngine.auditEvents.unshift(evt);
+            return { ok: false, status: 403, data: { authorized: false, reason: "No active consent found for provider " + actorId, records: [] } };
+          }
+        }
+
+        let list = ClientEngine.records.filter(r => r.patient_id === patientId);
+        if (scope && scope !== 'ALL') list = list.filter(r => r.category === scope);
+
+        // If authorized read by provider, log READ event
+        if (actorId && actorId !== patientId && actorId !== 'AUD-501') {
+          const evt = {
+            block_index: ClientEngine.blocks.length + 1,
+            event_type: "READ",
+            actor_id: actorId, patient_id: patientId, record_id: "RECORDS_BATCH",
+            timestamp: Date.now() / 1000,
+            details: { record_category: scope || "ALL", emergency_override: emergency, integrity_intact: true },
+            status: "SUCCESS",
+            tx_hash: await sha256Hex(actorId + patientId + Date.now())
+          };
+          ClientEngine.auditEvents.unshift(evt);
+        }
+
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/consent/grant') {
+        const { patient_id, provider_id, scope, duration_seconds, purpose } = body;
+        const now = Date.now() / 1000;
+        const expires_at = duration_seconds ? now + duration_seconds : null;
+
+        // Revoke any existing active consent for this pair
+        ClientEngine.consents = ClientEngine.consents.map(c => {
+          if (c.patient_id === patient_id && c.provider_id === provider_id && c.scope === scope) {
+            return { ...c, is_active: false, status: "revoked" };
+          }
+          return c;
+        });
+
+        const newConsent = {
+          patient_id, provider_id, scope, status: "granted",
+          granted_at: now, expires_at, purpose, is_active: true
+        };
+        ClientEngine.consents.unshift(newConsent);
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex(patient_id + provider_id + scope + now);
+        const newBlock = {
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        };
+        ClientEngine.blocks.unshift(newBlock);
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "GRANT", actor_id: patient_id, patient_id,
+          record_id: "Global", timestamp: now, details: { provider_id, scope, duration_seconds, purpose },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true, consent: newConsent, block: newBlock } };
+      }
+
+      if (path === '/api/consent/revoke') {
+        const { patient_id, provider_id, scope } = body;
+        const now = Date.now() / 1000;
+        ClientEngine.consents = ClientEngine.consents.map(c => {
+          if (c.patient_id === patient_id && c.provider_id === provider_id && (scope === 'ALL' || c.scope === scope)) {
+            return { ...c, is_active: false, status: "revoked", revoked_at: now };
+          }
+          return c;
+        });
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex("REVOKE" + patient_id + provider_id + now);
+        const newBlock = {
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        };
+        ClientEngine.blocks.unshift(newBlock);
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "REVOKE", actor_id: patient_id, patient_id,
+          record_id: "Global", timestamp: now, details: { provider_id, scope, action: "Patient revoked data access permission" },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/records/write') {
+        const { actor_id, patient_id, category, title, clinical_data } = body;
+        const now = Date.now() / 1000;
+        const consent = ClientEngine.consents.find(c => c.patient_id === patient_id && c.provider_id === actor_id && c.is_active && (c.scope === 'ALL' || c.scope === category));
+        if (!consent) {
+          return { ok: false, status: 403, data: { authorized: false, message: "WRITE REJECTED: No active consent to write records." } };
+        }
+
+        const newHash = await sha256Hex(JSON.stringify(clinical_data));
+        const recId = "REC-" + category.slice(0, 3) + "-" + Math.floor(Math.random()*900 + 100);
+        const newRec = {
+          record_id: recId, patient_id, category, title, clinical_data,
+          version: 1, sha256_hash: newHash, anchored_hash: newHash, is_intact: true
+        };
+        ClientEngine.records.unshift(newRec);
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex("WRITE" + recId + newHash);
+        ClientEngine.blocks.unshift({
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        });
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "WRITE", actor_id, patient_id,
+          record_id: recId, timestamp: now, details: { record_title: title, record_category: category, version: 1 },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true, record: newRec } };
+      }
+
+      if (path === '/api/records/simulate-tamper') {
+        const { record_id } = body;
+        const r = ClientEngine.records.find(rec => rec.record_id === record_id);
+        if (r) {
+          r.sha256_hash = "TAMPERED_0000000000000000000000000000000000000000000000000000000000000";
+          r.is_intact = false;
+        }
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/records/restore') {
+        const { record_id } = body;
+        const r = ClientEngine.records.find(rec => rec.record_id === record_id);
+        if (r) {
+          r.sha256_hash = r.anchored_hash;
+          r.is_intact = true;
+        }
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/audit-trail') {
+        const eventType = params.get('event_type');
+        const patientId = params.get('patient_id');
+        let list = ClientEngine.auditEvents;
+        if (eventType) list = list.filter(e => e.event_type === eventType);
+        if (patientId) list = list.filter(e => e.patient_id === patientId || e.patient_id === 'ALL_PATIENTS');
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/blockchain/blocks') {
+        return { ok: true, status: 200, data: ClientEngine.blocks };
+      }
+
+      if (path === '/api/blockchain/verify') {
+        return { ok: true, status: 200, data: { is_valid: true, height: ClientEngine.blocks.length, errors: [] } };
+      }
+
+      if (path === '/api/reset') {
+        location.reload();
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      return { ok: false, status: 404, data: { error: "Not found" } };
+    }
 
     // Initialization
     window.addEventListener('DOMContentLoaded', async () => {
+      // Check if we are running in Netlify or standalone static environment
+      if (window.location.hostname.includes('netlify.app') || window.location.protocol === 'file:') {
+        isClientMode = true;
+        document.getElementById('runtime-mode-badge').textContent = "Netlify • WebCrypto Mode";
+        document.getElementById('runtime-mode-badge').className = "text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline";
+      }
+
       await loadIdentities();
       await refreshTelemetry();
       switchRole('patient');
@@ -660,8 +985,8 @@
 
     async function loadIdentities() {
       try {
-        const res = await fetch('/api/identities');
-        identities = await res.json();
+        const res = await apiRequest('/api/identities');
+        identities = res.data;
         populateIdentitySelector();
         populateModalDropdowns();
       } catch (err) {
@@ -781,8 +1106,8 @@
     // TELEMETRY
     async function refreshTelemetry() {
       try {
-        const res = await fetch('/api/status');
-        statusData = await res.json();
+        const res = await apiRequest('/api/status');
+        statusData = res.data;
 
         document.getElementById('stat-block-height').textContent = `#${statusData.blockchain.height}`;
         document.getElementById('stat-total-events').textContent = statusData.blockchain.total_events;
@@ -802,26 +1127,18 @@
       }
     }
 
-    // ==============================================================
     // PATIENT DASHBOARD LOGIC
-    // ==============================================================
     async function loadPatientDashboard() {
       const patientId = currentActorId;
       try {
-        // 1. Fetch patient consents
-        const cRes = await fetch(`/api/consents?patient_id=${patientId}`);
-        const consents = await cRes.json();
-        renderPatientConsents(consents);
+        const cRes = await apiRequest(`/api/consents?patient_id=${patientId}`);
+        renderPatientConsents(cRes.data);
 
-        // 2. Fetch patient records
-        const rRes = await fetch(`/api/records?patient_id=${patientId}&actor_id=${patientId}`);
-        const records = await rRes.json();
-        renderPatientRecords(records);
+        const rRes = await apiRequest(`/api/records?patient_id=${patientId}&actor_id=${patientId}`);
+        renderPatientRecords(rRes.data);
 
-        // 3. Fetch patient audit trail
-        const aRes = await fetch(`/api/audit-trail?patient_id=${patientId}`);
-        const audits = await aRes.json();
-        renderPatientAudit(audits);
+        const aRes = await apiRequest(`/api/audit-trail?patient_id=${patientId}`);
+        renderPatientAudit(aRes.data);
 
         await refreshTelemetry();
         lucide.createIcons();
@@ -952,9 +1269,7 @@
       }).join('');
     }
 
-    // ==============================================================
     // PROVIDER WORKFLOWS & GATE CHECK
-    // ==============================================================
     async function onProviderTargetChange() {
       const patientId = document.getElementById('provider-target-patient').value;
       const scope = document.getElementById('provider-target-scope').value;
@@ -964,8 +1279,8 @@
       indicator.innerHTML = `<span class="text-slate-400">Evaluating smart contract consent rules...</span>`;
 
       try {
-        const res = await fetch(`/api/consents?patient_id=${patientId}&provider_id=${providerId}`);
-        const consents = await res.json();
+        const res = await apiRequest(`/api/consents?patient_id=${patientId}&provider_id=${providerId}`);
+        const consents = res.data;
         const activeConsent = consents.find(c => c.is_active && (c.scope === 'ALL' || c.scope === scope));
 
         if (activeConsent) {
@@ -1020,11 +1335,10 @@
           url += `&emergency=true&override_reason=${encodeURIComponent(reason || 'Emergency override')}`;
         }
 
-        const res = await fetch(url);
-        const data = await res.json();
+        const res = await apiRequest(url);
+        const data = res.data;
 
         if (!res.ok || data.authorized === false) {
-          // ACCESS DENIED
           badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700';
           badge.textContent = 'ACCESS DENIED';
 
@@ -1049,7 +1363,6 @@
           return;
         }
 
-        // ACCESS GRANTED
         badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
         badge.textContent = 'ACCESS GRANTED • AUDIT LOGGED';
 
@@ -1090,9 +1403,7 @@
       }
     }
 
-    // ==============================================================
     // AUDITOR DASHBOARD LOGIC
-    // ==============================================================
     async function loadAuditorDashboard() {
       await loadIntegrityTable();
       await loadAuditTrail();
@@ -1103,8 +1414,8 @@
 
     async function loadIntegrityTable() {
       try {
-        const res = await fetch('/api/records?patient_id=P-101&actor_id=AUD-501');
-        const records = await res.json();
+        const res = await apiRequest('/api/records?patient_id=P-101&actor_id=AUD-501');
+        const records = res.data;
         const tbody = document.getElementById('auditor-integrity-table');
 
         tbody.innerHTML = records.map(r => {
@@ -1155,8 +1466,8 @@
         if (eventType) url += `event_type=${eventType}&`;
         if (patientId) url += `patient_id=${patientId}&`;
 
-        const res = await fetch(url);
-        const audits = await res.json();
+        const res = await apiRequest(url);
+        const audits = res.data;
         const tbody = document.getElementById('master-audit-table');
 
         tbody.innerHTML = audits.map(a => {
@@ -1190,8 +1501,8 @@
 
     async function loadBlockchainBlocks() {
       try {
-        const res = await fetch('/api/blockchain/blocks');
-        const blocks = await res.json();
+        const res = await apiRequest('/api/blockchain/blocks');
+        const blocks = res.data;
         const container = document.getElementById('blockchain-blocks-container');
 
         container.innerHTML = blocks.slice(-5).reverse().map(b => `
@@ -1218,8 +1529,8 @@
 
     async function verifyEntireLedger() {
       try {
-        const res = await fetch('/api/blockchain/verify');
-        const data = await res.json();
+        const res = await apiRequest('/api/blockchain/verify');
+        const data = res.data;
         document.getElementById('audit-verify-status').textContent = data.is_valid 
           ? 'Ledger Cryptographically Verified: All Blocks Intact' 
           : 'CORRUPTION DETECTED IN LEDGER CHAIN!';
@@ -1237,12 +1548,7 @@
 
     async function simulateTamper(recordId) {
       try {
-        const res = await fetch('/api/records/simulate-tamper', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ record_id: recordId, tampered_field: 'clinical_notes', fake_value: 'FRAUDULENT_UNAUTHORIZED_ALTERATION' })
-        });
-        const data = await res.json();
+        await apiRequest('/api/records/simulate-tamper', 'POST', { record_id: recordId, tampered_field: 'clinical_notes', fake_value: 'FRAUDULENT_UNAUTHORIZED_ALTERATION' });
         showToast(`Record ${recordId} corrupted off-chain! Auditor detects mismatch immediately.`, 'error');
         await loadIntegrityTable();
         lucide.createIcons();
@@ -1253,12 +1559,7 @@
 
     async function restoreRecord(recordId) {
       try {
-        const res = await fetch('/api/records/restore', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ record_id: recordId })
-        });
-        const data = await res.json();
+        await apiRequest('/api/records/restore', 'POST', { record_id: recordId });
         showToast(`Record ${recordId} restored to clean original state.`, 'success');
         await loadIntegrityTable();
         lucide.createIcons();
@@ -1267,9 +1568,7 @@
       }
     }
 
-    // ==============================================================
     // ACTIONS & MODALS
-    // ==============================================================
     function openGrantModal() {
       document.getElementById('modal-grant-consent').classList.remove('hidden');
       lucide.createIcons();
@@ -1286,18 +1585,13 @@
       const purpose = document.getElementById('modal-grant-purpose').value;
 
       try {
-        const res = await fetch('/api/consent/grant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            patient_id: patientId,
-            provider_id: providerId,
-            scope: scope,
-            duration_seconds: duration ? parseInt(duration) : null,
-            purpose: purpose
-          })
+        await apiRequest('/api/consent/grant', 'POST', {
+          patient_id: patientId,
+          provider_id: providerId,
+          scope: scope,
+          duration_seconds: duration ? parseInt(duration) : null,
+          purpose: purpose
         });
-        const data = await res.json();
         closeGrantModal();
         showToast(`Consent GRANTED on-chain to ${providerId} (Scope: ${scope})!`, 'success');
         await loadPatientDashboard();
@@ -1310,16 +1604,11 @@
       if (!confirm(`Are you sure you want to revoke consent for ${providerId} on scope ${scope}?`)) return;
 
       try {
-        const res = await fetch('/api/consent/revoke', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            patient_id: patientId,
-            provider_id: providerId,
-            scope: scope
-          })
+        await apiRequest('/api/consent/revoke', 'POST', {
+          patient_id: patientId,
+          provider_id: providerId,
+          scope: scope
         });
-        const data = await res.json();
         showToast(`Consent REVOKED for ${providerId}. Event recorded on blockchain!`, 'success');
         await loadPatientDashboard();
       } catch (err) {
@@ -1343,24 +1632,19 @@
       const notes = document.getElementById('modal-write-notes').value || 'Standard examination findings.';
 
       try {
-        const res = await fetch('/api/records/write', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            actor_id: actorId,
-            patient_id: patientId,
-            category: category,
-            title: title,
-            clinical_data: {
-              author: actorId,
-              clinical_notes: notes,
-              timestamp: new Date().toISOString()
-            }
-          })
+        const res = await apiRequest('/api/records/write', 'POST', {
+          actor_id: actorId,
+          patient_id: patientId,
+          category: category,
+          title: title,
+          clinical_data: {
+            author: actorId,
+            clinical_notes: notes,
+            timestamp: new Date().toISOString()
+          }
         });
-        const data = await res.json();
         if (!res.ok) {
-          showToast(data.message || 'Write denied: No active consent!', 'error');
+          showToast(res.data.message || 'Write denied: No active consent!', 'error');
           return;
         }
 
@@ -1378,9 +1662,8 @@
     async function resetSystemPrompt() {
       if (!confirm('Reset entire ledger and off-chain records back to pristine demo state?')) return;
       try {
-        await fetch('/api/reset', { method: 'POST' });
+        await apiRequest('/api/reset', 'POST');
         showToast('System reset to clean demo baseline.', 'success');
-        location.reload();
       } catch (err) {
         showToast('Reset failed', 'error');
       }

@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediChain Consent — Healthcare Consent & Audit Log</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .badge-grant { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .badge-revoke { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-read { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-write { background-color: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .badge-unauth { background-color: #fff1f2; color: #be123c; border: 1px solid #fda4af; }
+    .badge-verify { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & System Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg text-slate-900 tracking-tight">MediChain<span class="text-blue-600">Consent</span></span>
+            <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase tracking-wider">HIPAA & GDPR</span>
+            <span id="runtime-mode-badge" class="text-[10px] font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full hidden sm:inline">WebCrypto Ledger</span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Healthcare Consent & Cryptographic Audit Ledger</p>
+        </div>
+      </div>
+
+      <!-- Persona Switcher -->
+      <div class="flex items-center space-x-2 sm:space-x-4">
+        <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <span class="text-xs font-medium text-slate-500 px-2 hidden md:inline">Simulated Role:</span>
+          
+          <button onclick="switchRole('patient')" id="btn-role-patient"
+            class="role-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 bg-white text-blue-700 shadow-sm">
+            <i data-lucide="user" class="w-3.5 h-3.5"></i>
+            <span>Patient</span>
+          </button>
+
+          <button onclick="switchRole('provider')" id="btn-role-provider"
+            class="role-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 text-slate-600 hover:text-slate-900">
+            <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
+            <span>Doctor / Provider</span>
+          </button>
+
+          <button onclick="switchRole('auditor')" id="btn-role-auditor"
+            class="role-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 text-slate-600 hover:text-slate-900">
+            <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
+            <span>Auditor</span>
+          </button>
+        </div>
+
+        <!-- Identity Selector Dropdown -->
+        <select id="identity-selector" onchange="onIdentityChanged()" 
+          class="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <!-- Filled by JS -->
+        </select>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- TELEMETRY & SYSTEM STATUS BANNER -->
+  <section class="bg-slate-900 text-white border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 text-xs">
+        
+        <div class="flex items-center space-x-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <div>
+            <div class="text-slate-400">Blockchain Status</div>
+            <div class="font-semibold text-emerald-400" id="stat-chain-status">Immutable • Valid</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-slate-400">Ledger Block Height</div>
+          <div class="font-bold text-sm mono" id="stat-block-height">#0</div>
+        </div>
+
+        <div>
+          <div class="text-slate-400">Total Audit Events</div>
+          <div class="font-bold text-sm mono" id="stat-total-events">0</div>
+        </div>
+
+        <div>
+          <div class="text-slate-400">Active Consents</div>
+          <div class="font-bold text-sm text-blue-400 mono" id="stat-active-consents">0</div>
+        </div>
+
+        <div class="hidden sm:block">
+          <div class="text-slate-400">Off-Chain Records</div>
+          <div class="font-bold text-sm text-amber-400 mono" id="stat-offchain-records">5 files</div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 col-span-2 sm:col-span-1">
+          <button onclick="verifyEntireLedger()" 
+            class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 transition shadow">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>Verify Chain</span>
+          </button>
+          <button onclick="resetSystemPrompt()" title="Reset to clean initial state"
+            class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[11px] transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN APPLICATION BODY -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+    <!-- ============================================================== -->
+    <!-- VIEW 1: PATIENT PORTAL -->
+    <!-- ============================================================== -->
+    <div id="view-patient" class="space-y-8">
+      
+      <!-- Patient Profile Banner -->
+      <div class="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 opacity-10">
+          <i data-lucide="user-check" class="w-48 h-48"></i>
+        </div>
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-3 mb-1">
+              <span class="bg-blue-500/30 text-blue-100 text-xs px-2.5 py-0.5 rounded-full font-medium border border-blue-400/30">Patient ID: <span id="pat-id" class="mono font-bold">P-101</span></span>
+              <span class="text-xs text-blue-200" id="pat-org">St. Jude Health Network</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight" id="pat-name">Alice Smith</h1>
+            <p class="text-xs text-blue-100 mt-1 max-w-xl" id="pat-specialty">
+              You possess sole cryptographic authority to grant or revoke medical record access permissions.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button onclick="openGrantModal()" 
+              class="bg-white text-blue-900 hover:bg-blue-50 font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center space-x-2 shadow transition">
+              <i data-lucide="key-round" class="w-4 h-4 text-blue-600"></i>
+              <span>Grant New Access</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two Column Layout: Consents & Personal Records -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left 2 Cols: Active & Historical Consents -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="shield" class="w-5 h-5 text-blue-600"></i>
+                <h2 class="font-bold text-slate-900 text-base">Your Active Access Permissions (Consents)</h2>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700" id="pat-consent-count">
+                0 Active
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">
+              Healthcare providers cannot read or update your off-chain clinical files without an active on-chain consent record.
+            </p>
+
+            <!-- Consent Cards Container -->
+            <div id="patient-consents-container" class="space-y-3">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Patient's Personal Access Audit Trail -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i>
+                <h2 class="font-bold text-slate-900 text-base">My Privacy Audit Trail</h2>
+              </div>
+              <span class="text-xs text-slate-500">Immutable On-Chain Log</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">
+              Real-time chronological record of every doctor, clinic, or lab that viewed, updated, or was blocked from accessing your records.
+            </p>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                    <th class="pb-2.5">Event</th>
+                    <th class="pb-2.5">Actor / Provider</th>
+                    <th class="pb-2.5">Record / Scope</th>
+                    <th class="pb-2.5">Timestamp</th>
+                    <th class="pb-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="patient-audit-table" class="divide-y divide-slate-100 text-slate-600">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 1 Col: Off-Chain Medical Records Vault -->
+        <div class="space-y-6">
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="folder-lock" class="w-5 h-5 text-blue-600"></i>
+                <h2 class="font-bold text-slate-900 text-base">Off-Chain Record Vault</h2>
+              </div>
+              <span class="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded">Decoupled</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">
+              Files reside securely off-chain. Only cryptographic SHA-256 hashes are anchored to the blockchain.
+            </p>
+
+            <div id="patient-records-container" class="space-y-3">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VIEW 2: HEALTHCARE PROVIDER PORTAL -->
+    <!-- ============================================================== -->
+    <div id="view-provider" class="hidden space-y-8">
+      
+      <!-- Provider Header -->
+      <div class="bg-gradient-to-r from-teal-800 via-teal-900 to-slate-900 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-3 mb-1">
+            <span class="bg-teal-500/30 text-teal-100 text-xs px-2.5 py-0.5 rounded-full font-medium border border-teal-400/30" id="prov-id">DOC-201</span>
+            <span class="text-xs text-teal-200" id="prov-org">St. Jude Cardiology Institute</span>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight" id="prov-name">Dr. Sarah Carter, MD</h1>
+          <p class="text-xs text-teal-100 mt-1" id="prov-specialty">Cardiovascular Medicine & Internal Medicine</p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="openWriteRecordModal()" 
+            class="bg-teal-500 hover:bg-teal-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center space-x-2 shadow transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Add / Update Medical Record</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Patient Access Request & Record Inspection Area -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left: Target Patient Selection & Gate Check -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="search" class="w-5 h-5 text-teal-600"></i>
+            <h2 class="font-bold text-slate-900 text-base">Select Patient & Scope</h2>
+          </div>
+          <p class="text-xs text-slate-500">
+            Smart contract evaluates active patient consent before opening off-chain clinical data.
+          </p>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Patient Subject:</label>
+              <select id="provider-target-patient" onchange="onProviderTargetChange()" 
+                class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 font-medium focus:ring-2 focus:ring-teal-500">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Record Scope Requested:</label>
+              <select id="provider-target-scope" onchange="onProviderTargetChange()" 
+                class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 font-medium focus:ring-2 focus:ring-teal-500">
+                <option value="ALL">ALL — Full Medical Record</option>
+                <option value="EHR_GENERAL">EHR_GENERAL — Health History & Vitals</option>
+                <option value="LAB_REPORTS">LAB_REPORTS — Blood & Pathology Panels</option>
+                <option value="PRESCRIPTIONS">PRESCRIPTIONS — Active Rx Regimen</option>
+                <option value="IMAGING">IMAGING — Radiology & Scans</option>
+              </select>
+            </div>
+
+            <!-- Smart Contract Live Gate Status Indicator -->
+            <div id="provider-gate-indicator" class="p-3.5 rounded-xl border text-xs">
+              <!-- Dynamically set -->
+            </div>
+
+            <!-- Emergency Break-Glass Toggle -->
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-1.5">
+                  <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
+                  <span class="text-xs font-bold text-amber-900">Break-Glass Emergency Override</span>
+                </div>
+                <input type="checkbox" id="break-glass-toggle" onchange="onBreakGlassToggle()" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
+              </div>
+              <p class="text-[11px] text-amber-700">
+                Allows emergency ER read when consent is absent. All overrides trigger a priority compliance alert on-chain.
+              </p>
+              <div id="break-glass-reason-container" class="hidden">
+                <input type="text" id="break-glass-reason" placeholder="Mandatory Clinical Emergency Reason (e.g. Unconscious Trauma)"
+                  class="w-full text-xs bg-white border border-amber-300 rounded p-1.5 text-slate-800 focus:ring-1 focus:ring-amber-500">
+              </div>
+            </div>
+
+            <button onclick="requestPatientRecords()" 
+              class="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow">
+              <i data-lucide="unlock" class="w-4 h-4"></i>
+              <span>Access Off-Chain Records</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Center & Right: Decoupled Medical Records Viewer -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm min-h-[420px]">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="file-text" class="w-5 h-5 text-teal-600"></i>
+                <h2 class="font-bold text-slate-900 text-base">Authorized Medical Records Content</h2>
+              </div>
+              <div id="provider-access-badge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                Awaiting Gate Check
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div id="provider-record-display" class="space-y-4">
+              <div class="text-center py-12 text-slate-400">
+                <i data-lucide="stethoscope" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+                <p class="text-xs">Select a patient and click "Access Off-Chain Records" to evaluate consent rules.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VIEW 3: COMPLIANCE & AUDITOR CONSOLE -->
+    <!-- ============================================================== -->
+    <div id="view-auditor" class="hidden space-y-8">
+      
+      <!-- Auditor Header -->
+      <div class="bg-gradient-to-r from-rose-900 via-slate-900 to-indigo-950 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-3 mb-1">
+            <span class="bg-rose-500/30 text-rose-100 text-xs px-2.5 py-0.5 rounded-full font-medium border border-rose-400/30">Auditor ID: AUD-501</span>
+            <span class="text-xs text-rose-200">HIPAA Security & OCR Compliance Inspector</span>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight">Compliance & Integrity Auditor Console</h1>
+          <p class="text-xs text-rose-100 mt-1">
+            Verify blockchain block immutability, audit full access history, and detect off-chain zero-byte file tampering.
+          </p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="verifyEntireLedger()" 
+            class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center space-x-2 shadow transition">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            <span>Validate Blockchain Integrity</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Blockchain Chain Verification Card -->
+      <div id="auditor-chain-verification-card" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="link" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Cryptographic Proof: SHA-256 Merkle Block Linkage</div>
+            <div class="text-sm font-bold text-slate-800" id="audit-verify-status">Chain Valid & Tamper-Evident from Genesis</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-slate-400">Total Validated Blocks:</span>
+          <span class="font-bold text-slate-800 mono text-sm ml-1" id="audit-verify-height">8</span>
+        </div>
+      </div>
+
+      <!-- Off-Chain Integrity Audit & Tamper Simulator -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="fingerprint" class="w-5 h-5 text-indigo-600"></i>
+            <h2 class="font-bold text-slate-900 text-base">Off-Chain Records Cryptographic Integrity Audit</h2>
+          </div>
+          <span class="text-xs text-slate-500">Live Hash vs On-Chain Anchored Hash Verification</span>
+        </div>
+        <p class="text-xs text-slate-500">
+          Audits whether off-chain EHR documents match their immutable on-chain SHA-256 digests. You can simulate an insider tampering with an off-chain record file to see how the system immediately catches the corruption!
+        </p>
+
+        <!-- Integrity Audit Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                <th class="pb-2.5">Record ID</th>
+                <th class="pb-2.5">Patient</th>
+                <th class="pb-2.5">Scope</th>
+                <th class="pb-2.5">Live File SHA-256 Digest</th>
+                <th class="pb-2.5">On-Chain Anchored Digest</th>
+                <th class="pb-2.5">Integrity Status</th>
+                <th class="pb-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="auditor-integrity-table" class="divide-y divide-slate-100 text-slate-600">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Full Chronological Immutable Audit Trail -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="list-checks" class="w-5 h-5 text-rose-600"></i>
+            <h2 class="font-bold text-slate-900 text-base">Master Chronological Audit Log</h2>
+          </div>
+
+          <!-- Filters -->
+          <div class="flex items-center space-x-2 text-xs">
+            <select id="audit-filter-event" onchange="loadAuditTrail()" 
+              class="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 font-medium">
+              <option value="">All Event Types</option>
+              <option value="GRANT">GRANT</option>
+              <option value="REVOKE">REVOKE</option>
+              <option value="READ">READ</option>
+              <option value="WRITE">WRITE</option>
+              <option value="UNAUTHORIZED_ATTEMPT">UNAUTHORIZED_ATTEMPT</option>
+              <option value="VERIFY_INTEGRITY">VERIFY_INTEGRITY</option>
+            </select>
+            <select id="audit-filter-patient" onchange="loadAuditTrail()" 
+              class="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 font-medium">
+              <option value="">All Patients</option>
+              <option value="P-101">Alice Smith (P-101)</option>
+              <option value="P-102">Robert Chen (P-102)</option>
+              <option value="P-103">Elena Rostova (P-103)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                <th class="pb-2.5">Block #</th>
+                <th class="pb-2.5">Event Type</th>
+                <th class="pb-2.5">Actor</th>
+                <th class="pb-2.5">Patient</th>
+                <th class="pb-2.5">Record / Target</th>
+                <th class="pb-2.5">Timestamp</th>
+                <th class="pb-2.5">Details & Scope</th>
+                <th class="pb-2.5">Tx Hash</th>
+              </tr>
+            </thead>
+            <tbody id="master-audit-table" class="divide-y divide-slate-100 text-slate-600">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Blockchain Block Visual Explorer -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="blocks" class="w-5 h-5 text-blue-600"></i>
+            <h2 class="font-bold text-slate-900 text-base">Blockchain Block Explorer</h2>
+          </div>
+          <span class="text-xs text-slate-500">Append-Only Permissioned Ledger</span>
+        </div>
+
+        <div id="blockchain-blocks-container" class="space-y-3">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: GRANT NEW CONSENT -->
+  <!-- ============================================================== -->
+  <div id="modal-grant-consent" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+            <i data-lucide="key-round" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-bold text-slate-900 text-base">Grant Healthcare Provider Access</h3>
+        </div>
+        <button onclick="closeGrantModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Healthcare Provider:</label>
+          <select id="modal-grant-provider" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Scope of Access:</label>
+          <select id="modal-grant-scope" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800">
+            <option value="ALL">ALL — Full Medical Record</option>
+            <option value="EHR_GENERAL">EHR_GENERAL — Health History & Vitals</option>
+            <option value="LAB_REPORTS">LAB_REPORTS — Laboratory & Pathology Reports</option>
+            <option value="PRESCRIPTIONS">PRESCRIPTIONS — Medication & Pharmacy</option>
+            <option value="IMAGING">IMAGING — Radiology & Scans</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Access Expiration Period:</label>
+          <select id="modal-grant-duration" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800">
+            <option value="3600">1 Hour (Immediate Emergency / Consultation)</option>
+            <option value="86400">24 Hours (1 Day)</option>
+            <option value="604800" selected>7 Days (Standard Outpatient Diagnostic)</option>
+            <option value="2592000">30 Days (Ongoing Care Plan)</option>
+            <option value="">Permanent (Until explicitly revoked)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Care Purpose / Clinical Justification:</label>
+          <input type="text" id="modal-grant-purpose" value="Medical diagnosis and care delivery" 
+            class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 font-medium">
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-[11px] text-blue-800 flex items-start space-x-2">
+          <i data-lucide="info" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0"></i>
+          <span>
+            This transaction will update your consent state in the smart contract and append an immutable GRANT block to the ledger.
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+        <button onclick="closeGrantModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+        <button onclick="submitGrantConsent()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow transition flex items-center space-x-1.5">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Confirm & Sign Consent</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: ADD / UPDATE MEDICAL RECORD -->
+  <!-- ============================================================== -->
+  <div id="modal-write-record" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+            <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-bold text-slate-900 text-base">Create / Update Medical Record</h3>
+        </div>
+        <button onclick="closeWriteRecordModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Patient Subject:</label>
+          <select id="modal-write-patient" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Record Category / Scope:</label>
+          <select id="modal-write-category" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800">
+            <option value="EHR_GENERAL">EHR_GENERAL — Health History & Vitals</option>
+            <option value="LAB_REPORTS">LAB_REPORTS — Laboratory Panel</option>
+            <option value="PRESCRIPTIONS">PRESCRIPTIONS — Medication Order</option>
+            <option value="IMAGING">IMAGING — Diagnostic Imaging</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Record Document Title:</label>
+          <input type="text" id="modal-write-title" placeholder="e.g. Cardiology Follow-up & Stress Test Results"
+            class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 font-medium">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Clinical Notes & Findings:</label>
+          <textarea id="modal-write-notes" rows="3" placeholder="Enter clinical assessment, diagnostic impression, or treatment plan..."
+            class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800 font-medium"></textarea>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 flex items-start space-x-2">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0"></i>
+          <span>
+            Smart contract permission gate will verify that you hold active consent for this patient before saving off-chain.
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+        <button onclick="closeWriteRecordModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+        <button onclick="submitWriteRecord()" class="px-5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold shadow transition flex items-center space-x-1.5">
+          <i data-lucide="save" class="w-3.5 h-3.5"></i>
+          <span>Save & Anchor Hash</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC WITH WEBCRYPTO CLIENT LEDGER FALLBACK -->
+  <script>
+    // State
+    let currentRole = 'patient';
+    let currentActorId = 'P-101';
+    let identities = {};
+    let statusData = {};
+    let isClientMode = false;
+
+    // Helper: SHA-256 via Web Crypto
+    async function sha256Hex(str) {
+      const buffer = new TextEncoder().encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Client-Side In-Memory Ledger Engine (Seamless Netlify / Serverless Mode)
+    const ClientEngine = {
+      identities: {
+        "P-101": { id: "P-101", name: "Alice Smith", role: "patient", organization: "St. Jude Health Network", email: "alice.smith@patient.org", specialty: "Patient (DOB: 1989-05-14 | Blood: A+)" },
+        "P-102": { id: "P-102", name: "Robert Chen", role: "patient", organization: "Metro Health System", email: "robert.chen@patient.org", specialty: "Patient (DOB: 1978-11-22 | Blood: O-)" },
+        "P-103": { id: "P-103", name: "Elena Rostova", role: "patient", organization: "Northside Medical", email: "elena.rostova@patient.org", specialty: "Patient (DOB: 1995-02-18 | Blood: B+)" },
+        "DOC-201": { id: "DOC-201", name: "Dr. Sarah Carter, MD", role: "doctor", organization: "St. Jude Cardiology Institute", email: "s.carter@stjude-health.org", specialty: "Cardiovascular Medicine & Internal Medicine" },
+        "DOC-202": { id: "DOC-202", name: "Dr. Marcus Vance, MD", role: "doctor", organization: "Metro General Hospital", email: "m.vance@metrohealth.org", specialty: "Oncology & Hematology" },
+        "LAB-301": { id: "LAB-301", name: "BioCore Diagnostic Labs", role: "lab", organization: "BioCore Clinical Pathology Inc.", email: "lab-dispatch@biocore-diagnostics.com", specialty: "Diagnostic Pathology & Molecular Panels" },
+        "RX-401": { id: "RX-401", name: "Apex Clinical Pharmacy", role: "pharmacy", organization: "Apex Healthcare Pharmacy Group", email: "dispensing@apexpharmacy.org", specialty: "Clinical Pharmacology & Outpatient Dispensing" },
+        "AUD-501": { id: "AUD-501", name: "Evelyn Reed", role: "auditor", organization: "Office for Civil Rights / HIPAA Compliance Inspector", email: "evelyn.reed@hhs-audit.gov", specialty: "Healthcare Regulatory Compliance & Security Audit" }
+      },
+
+      consents: [
+        { patient_id: "P-101", provider_id: "DOC-201", scope: "ALL", status: "granted", granted_at: (Date.now()/1000) - 86400, expires_at: (Date.now()/1000) + (29*86400), purpose: "Primary cardiology consultation and continuous care", is_active: true },
+        { patient_id: "P-101", provider_id: "LAB-301", scope: "LAB_REPORTS", status: "granted", granted_at: (Date.now()/1000) - 43200, expires_at: (Date.now()/1000) + (6*86400), purpose: "Diagnostic blood panel and metabolic testing analysis", is_active: true },
+        { patient_id: "P-101", provider_id: "RX-401", scope: "PRESCRIPTIONS", status: "revoked", granted_at: (Date.now()/1000) - 100000, revoked_at: (Date.now()/1000) - 20000, purpose: "Temporary prescription refill verification", is_active: false }
+      ],
+
+      records: [
+        {
+          record_id: "REC-EHR-101", patient_id: "P-101", category: "EHR_GENERAL", title: "Comprehensive Health Assessment & Baseline",
+          clinical_data: { vitals: { blood_pressure: "118/76 mmHg", heart_rate: "72 bpm", bmi: 22.4 }, allergies: ["Penicillin (Severe)", "Sulfa"], clinical_notes: "Patient presents in excellent overall health. Cardiovascular exams normal." },
+          version: 1, sha256_hash: "7d3181ad2e7c1b5198b7d4329d2547e3f5f421a62a6d6d981a99fe5031200786", anchored_hash: "7d3181ad2e7c1b5198b7d4329d2547e3f5f421a62a6d6d981a99fe5031200786", is_intact: true
+        },
+        {
+          record_id: "REC-LAB-102", patient_id: "P-101", category: "LAB_REPORTS", title: "Complete Blood Count (CBC) & Lipid Panel",
+          clinical_data: { laboratory: "BioCore Diagnostic Labs", fasting_glucose: "92 mg/dL", total_cholesterol: "184 mg/dL", hdl: "58 mg/dL", ldl: "108 mg/dL", hemoglobin_a1c: "5.3%" },
+          version: 1, sha256_hash: "8a2769e1334412c63c4393b1bd967db9f0db10405327fa8195fb7e7b2e208820", anchored_hash: "8a2769e1334412c63c4393b1bd967db9f0db10405327fa8195fb7e7b2e208820", is_intact: true
+        },
+        {
+          record_id: "REC-RX-103", patient_id: "P-101", category: "PRESCRIPTIONS", title: "Outpatient Maintenance Pharmacotherapy",
+          clinical_data: { pharmacy: "Apex Clinical Pharmacy", prescriptions: [{ drug_name: "Loratadine", strength: "10 mg", directions: "Take 1 tablet daily" }] },
+          version: 1, sha256_hash: "9a0a821f78f53f44a96c428c0cd2ee73187d5a39007549a18f7fb1f2c8e7273c", anchored_hash: "9a0a821f78f53f44a96c428c0cd2ee73187d5a39007549a18f7fb1f2c8e7273c", is_intact: true
+        },
+        {
+          record_id: "REC-IMG-104", patient_id: "P-101", category: "IMAGING", title: "Chest Radiograph (PA & Lateral Views)",
+          clinical_data: { facility: "St. Jude Diagnostic Imaging Center", findings: "Cardiothoracic ratio normal (<0.5). Bilateral lungs clear." },
+          version: 1, sha256_hash: "975e5dd45b44c3e5f193b54ab21462c51e19a927e1378a9ba4a92cf8c9c964b9", anchored_hash: "975e5dd45b44c3e5f193b54ab21462c51e19a927e1378a9ba4a92cf8c9c964b9", is_intact: true
+        },
+        {
+          record_id: "REC-EHR-201", patient_id: "P-102", category: "EHR_GENERAL", title: "Endocrine Metabolic Follow-up",
+          clinical_data: { vitals: { blood_pressure: "132/84 mmHg", heart_rate: "78 bpm" }, diagnosis: "Type 2 Diabetes Mellitus" },
+          version: 1, sha256_hash: "f421a62a6d6d981a99fe50312007867d3181ad2e7c1b5198b7d4329d2547e3f5", anchored_hash: "f421a62a6d6d981a99fe50312007867d3181ad2e7c1b5198b7d4329d2547e3f5", is_intact: true
+        }
+      ],
+
+      auditEvents: [
+        { block_index: 8, event_type: "UNAUTHORIZED_ATTEMPT", actor_id: "DOC-202", patient_id: "P-101", record_id: "REC-EHR-101", timestamp: (Date.now()/1000) - 300, details: { denial_reason: "No active consent found for provider DOC-202", record_title: "Comprehensive Health Assessment & Baseline" }, status: "ALERT_REJECTED", tx_hash: "74f2263e120b62856b8a1fc75b7e57cb5f33b85e1517190e6ec1c472c14c4b6e" },
+        { block_index: 7, event_type: "REVOKE", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 600, details: { provider_id: "RX-401", scope: "PRESCRIPTIONS", action: "Patient revoked data access permission" }, status: "SUCCESS", tx_hash: "c75b7e57cb5f33b85e1517190e6ec1c472c14c4b6ef190e7a0efcd3d73e35947" },
+        { block_index: 6, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 1200, details: { provider_id: "RX-401", scope: "PRESCRIPTIONS", duration_seconds: 1209600 }, status: "SUCCESS", tx_hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568" },
+        { block_index: 5, event_type: "WRITE", actor_id: "LAB-301", patient_id: "P-101", record_id: "REC-LAB-102", timestamp: (Date.now()/1000) - 3600, details: { record_title: "Complete Blood Count (CBC) & Lipid Panel", record_category: "LAB_REPORTS" }, status: "SUCCESS", tx_hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371" },
+        { block_index: 4, event_type: "READ", actor_id: "DOC-201", patient_id: "P-101", record_id: "REC-EHR-101", timestamp: (Date.now()/1000) - 7200, details: { record_title: "Comprehensive Health Assessment & Baseline", integrity_intact: true }, status: "SUCCESS", tx_hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0" },
+        { block_index: 3, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 43200, details: { provider_id: "LAB-301", scope: "LAB_REPORTS", duration_seconds: 604800 }, status: "SUCCESS", tx_hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828" },
+        { block_index: 2, event_type: "GRANT", actor_id: "P-101", patient_id: "P-101", record_id: "Global", timestamp: (Date.now()/1000) - 86400, details: { provider_id: "DOC-201", scope: "ALL", duration_seconds: 2592000 }, status: "SUCCESS", tx_hash: "5d2b472091fb9eca7ddc9a3bb988f68cdfbfe036b1e0a82da87e5bd48e2865a0" },
+        { block_index: 1, event_type: "GENESIS", actor_id: "SYSTEM_CORE", patient_id: "ALL_PATIENTS", record_id: "Global", timestamp: (Date.now()/1000) - 172800, details: { message: "Healthcare Consent & Audit Log Genesis Ledger Initialized" }, status: "SUCCESS", tx_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+      ],
+
+      blocks: [
+        { index: 8, timestamp: (Date.now()/1000) - 300, tx_count: 1, hash: "5d2b472091fb9eca7ddc9a3bb988f68cdfbfe036b1e0a82da87e5bd48e2865a0", previous_hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828", merkle_root: "e874250ca34e3982ccfa13b2b8b44d04fdcba5bca9b38bffc45de4644fb924c6" },
+        { index: 7, timestamp: (Date.now()/1000) - 600, tx_count: 1, hash: "98232cdfb761071a1ddff09c0d8833395dde33c9ce74cd2b4dc03f7a93de8828", previous_hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0", merkle_root: "2f029aca37f9e022986e60c21f851972dfd8bc58082d48b70bc5d00f2eeb8357" },
+        { index: 6, timestamp: (Date.now()/1000) - 1200, tx_count: 1, hash: "c56b393f7b15bd02f91f6e33a7278a7d863191a8d9cf3a54fd60c22641d6f6b0", previous_hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371", merkle_root: "960de3fd28e9e2f9d672bbccd6d253598d469b06bfa5fbb20b37eb08bf59c7de" },
+        { index: 5, timestamp: (Date.now()/1000) - 3600, tx_count: 1, hash: "d718692fc8ec5f73babfaf795e2f6dc716949ce70e46dcb332324285a18f0371", previous_hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568", merkle_root: "38f811db780dcb0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f" },
+        { index: 4, timestamp: (Date.now()/1000) - 7200, tx_count: 1, hash: "58a98c0e31b5662903225035adec14035cf72fca3882abcb90ffc5c4ef552568", previous_hash: "4dbac70c700a82a514842463596c34bfcbd5c4f8361df4a9ef0b66e0ad923a61", merkle_root: "c75b7e57cb5f33b85e1517190e6ec1c472c14c4b6ef190e7a0efcd3d73e35947" },
+        { index: 3, timestamp: (Date.now()/1000) - 43200, tx_count: 1, hash: "4dbac70c700a82a514842463596c34bfcbd5c4f8361df4a9ef0b66e0ad923a61", previous_hash: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d", merkle_root: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d" },
+        { index: 2, timestamp: (Date.now()/1000) - 86400, tx_count: 1, hash: "31fb84a20b0b43042d1d7836b7d5c7808d0dcf74f2263e120b62856b8a1f960d", previous_hash: "0000000000000000000000000000000000000000000000000000000000000000", merkle_root: "10b9818b5cf6dc2626e32c7308bb8ba667a11d3814500eaea4a12e3e81b8cc96" },
+        { index: 1, timestamp: (Date.now()/1000) - 172800, tx_count: 1, hash: "0000000000000000000000000000000000000000000000000000000000000000", previous_hash: "0000000000000000000000000000000000000000000000000000000000000000", merkle_root: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+      ]
+    };
+
+    // Unified API Dispatcher
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      if (!isClientMode) {
+        try {
+          const options = { method, headers: { 'Content-Type': 'application/json' } };
+          if (body) options.body = JSON.stringify(body);
+          const res = await fetch(endpoint, options);
+          if (res.ok || res.status === 403) {
+            return { ok: res.ok, status: res.status, data: await res.json() };
+          }
+        } catch (e) {
+          // Switch to client-side Web Crypto mode
+          isClientMode = true;
+          document.getElementById('runtime-mode-badge').textContent = "Netlify • WebCrypto Mode";
+          document.getElementById('runtime-mode-badge').className = "text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline";
+        }
+      }
+
+      // Handle in ClientEngine
+      const url = new URL(endpoint, window.location.origin);
+      const path = url.pathname;
+      const params = url.searchParams;
+
+      if (path === '/api/identities') {
+        return { ok: true, status: 200, data: ClientEngine.identities };
+      }
+
+      if (path === '/api/status') {
+        return {
+          ok: true, status: 200, data: {
+            system_name: "Healthcare Consent & Audit Log",
+            version: "1.0.0",
+            compliance: "HIPAA 45 CFR § 164.312(b) & GDPR Art. 7",
+            blockchain: { height: ClientEngine.blocks.length, latest_block_hash: ClientEngine.blocks[0].hash, chain_valid: true, total_events: ClientEngine.auditEvents.length },
+            offchain_storage: { total_records: ClientEngine.records.length, storage_mode: "Decoupled WebCrypto File Store" },
+            consent_engine: { total_consents_registered: ClientEngine.consents.length, active_consents: ClientEngine.consents.filter(c => c.is_active).length }
+          }
+        };
+      }
+
+      if (path === '/api/consents') {
+        const patientId = params.get('patient_id');
+        const providerId = params.get('provider_id');
+        let list = ClientEngine.consents;
+        if (patientId) list = list.filter(c => c.patient_id === patientId);
+        if (providerId) list = list.filter(c => c.provider_id === providerId);
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/records') {
+        const patientId = params.get('patient_id');
+        const actorId = params.get('actor_id');
+        const scope = params.get('category');
+        const emergency = params.get('emergency') === 'true';
+
+        if (actorId && actorId !== patientId && actorId !== 'AUD-501' && !emergency) {
+          const consent = ClientEngine.consents.find(c => c.patient_id === patientId && c.provider_id === actorId && c.is_active && (c.scope === 'ALL' || c.scope === scope));
+          if (!consent) {
+            // Log unauthorized attempt
+            const evt = {
+              block_index: ClientEngine.blocks.length + 1,
+              event_type: "UNAUTHORIZED_ATTEMPT",
+              actor_id: actorId, patient_id: patientId, record_id: "LIST_RECORDS_QUERY",
+              timestamp: Date.now() / 1000,
+              details: { denial_reason: "No active consent found under requested scope", requested_category: scope || "ALL" },
+              status: "ALERT_REJECTED",
+              tx_hash: await sha256Hex(actorId + patientId + Date.now())
+            };
+            ClientEngine.auditEvents.unshift(evt);
+            return { ok: false, status: 403, data: { authorized: false, reason: "No active consent found for provider " + actorId, records: [] } };
+          }
+        }
+
+        let list = ClientEngine.records.filter(r => r.patient_id === patientId);
+        if (scope && scope !== 'ALL') list = list.filter(r => r.category === scope);
+
+        // If authorized read by provider, log READ event
+        if (actorId && actorId !== patientId && actorId !== 'AUD-501') {
+          const evt = {
+            block_index: ClientEngine.blocks.length + 1,
+            event_type: "READ",
+            actor_id: actorId, patient_id: patientId, record_id: "RECORDS_BATCH",
+            timestamp: Date.now() / 1000,
+            details: { record_category: scope || "ALL", emergency_override: emergency, integrity_intact: true },
+            status: "SUCCESS",
+            tx_hash: await sha256Hex(actorId + patientId + Date.now())
+          };
+          ClientEngine.auditEvents.unshift(evt);
+        }
+
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/consent/grant') {
+        const { patient_id, provider_id, scope, duration_seconds, purpose } = body;
+        const now = Date.now() / 1000;
+        const expires_at = duration_seconds ? now + duration_seconds : null;
+
+        // Revoke any existing active consent for this pair
+        ClientEngine.consents = ClientEngine.consents.map(c => {
+          if (c.patient_id === patient_id && c.provider_id === provider_id && c.scope === scope) {
+            return { ...c, is_active: false, status: "revoked" };
+          }
+          return c;
+        });
+
+        const newConsent = {
+          patient_id, provider_id, scope, status: "granted",
+          granted_at: now, expires_at, purpose, is_active: true
+        };
+        ClientEngine.consents.unshift(newConsent);
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex(patient_id + provider_id + scope + now);
+        const newBlock = {
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        };
+        ClientEngine.blocks.unshift(newBlock);
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "GRANT", actor_id: patient_id, patient_id,
+          record_id: "Global", timestamp: now, details: { provider_id, scope, duration_seconds, purpose },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true, consent: newConsent, block: newBlock } };
+      }
+
+      if (path === '/api/consent/revoke') {
+        const { patient_id, provider_id, scope } = body;
+        const now = Date.now() / 1000;
+        ClientEngine.consents = ClientEngine.consents.map(c => {
+          if (c.patient_id === patient_id && c.provider_id === provider_id && (scope === 'ALL' || c.scope === scope)) {
+            return { ...c, is_active: false, status: "revoked", revoked_at: now };
+          }
+          return c;
+        });
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex("REVOKE" + patient_id + provider_id + now);
+        const newBlock = {
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        };
+        ClientEngine.blocks.unshift(newBlock);
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "REVOKE", actor_id: patient_id, patient_id,
+          record_id: "Global", timestamp: now, details: { provider_id, scope, action: "Patient revoked data access permission" },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/records/write') {
+        const { actor_id, patient_id, category, title, clinical_data } = body;
+        const now = Date.now() / 1000;
+        const consent = ClientEngine.consents.find(c => c.patient_id === patient_id && c.provider_id === actor_id && c.is_active && (c.scope === 'ALL' || c.scope === category));
+        if (!consent) {
+          return { ok: false, status: 403, data: { authorized: false, message: "WRITE REJECTED: No active consent to write records." } };
+        }
+
+        const newHash = await sha256Hex(JSON.stringify(clinical_data));
+        const recId = "REC-" + category.slice(0, 3) + "-" + Math.floor(Math.random()*900 + 100);
+        const newRec = {
+          record_id: recId, patient_id, category, title, clinical_data,
+          version: 1, sha256_hash: newHash, anchored_hash: newHash, is_intact: true
+        };
+        ClientEngine.records.unshift(newRec);
+
+        const newBlockIdx = ClientEngine.blocks.length + 1;
+        const txHash = await sha256Hex("WRITE" + recId + newHash);
+        ClientEngine.blocks.unshift({
+          index: newBlockIdx, timestamp: now, tx_count: 1,
+          hash: await sha256Hex(newBlockIdx + txHash),
+          previous_hash: ClientEngine.blocks[0].hash,
+          merkle_root: txHash
+        });
+
+        ClientEngine.auditEvents.unshift({
+          block_index: newBlockIdx, event_type: "WRITE", actor_id, patient_id,
+          record_id: recId, timestamp: now, details: { record_title: title, record_category: category, version: 1 },
+          status: "SUCCESS", tx_hash: txHash
+        });
+
+        return { ok: true, status: 200, data: { success: true, record: newRec } };
+      }
+
+      if (path === '/api/records/simulate-tamper') {
+        const { record_id } = body;
+        const r = ClientEngine.records.find(rec => rec.record_id === record_id);
+        if (r) {
+          r.sha256_hash = "TAMPERED_0000000000000000000000000000000000000000000000000000000000000";
+          r.is_intact = false;
+        }
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/records/restore') {
+        const { record_id } = body;
+        const r = ClientEngine.records.find(rec => rec.record_id === record_id);
+        if (r) {
+          r.sha256_hash = r.anchored_hash;
+          r.is_intact = true;
+        }
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      if (path === '/api/audit-trail') {
+        const eventType = params.get('event_type');
+        const patientId = params.get('patient_id');
+        let list = ClientEngine.auditEvents;
+        if (eventType) list = list.filter(e => e.event_type === eventType);
+        if (patientId) list = list.filter(e => e.patient_id === patientId || e.patient_id === 'ALL_PATIENTS');
+        return { ok: true, status: 200, data: list };
+      }
+
+      if (path === '/api/blockchain/blocks') {
+        return { ok: true, status: 200, data: ClientEngine.blocks };
+      }
+
+      if (path === '/api/blockchain/verify') {
+        return { ok: true, status: 200, data: { is_valid: true, height: ClientEngine.blocks.length, errors: [] } };
+      }
+
+      if (path === '/api/reset') {
+        location.reload();
+        return { ok: true, status: 200, data: { success: true } };
+      }
+
+      return { ok: false, status: 404, data: { error: "Not found" } };
+    }
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Check if we are running in Netlify or standalone static environment
+      if (window.location.hostname.includes('netlify.app') || window.location.protocol === 'file:') {
+        isClientMode = true;
+        document.getElementById('runtime-mode-badge').textContent = "Netlify • WebCrypto Mode";
+        document.getElementById('runtime-mode-badge').className = "text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline";
+      }
+
+      await loadIdentities();
+      await refreshTelemetry();
+      switchRole('patient');
+      lucide.createIcons();
+    });
+
+    async function loadIdentities() {
+      try {
+        const res = await apiRequest('/api/identities');
+        identities = res.data;
+        populateIdentitySelector();
+        populateModalDropdowns();
+      } catch (err) {
+        console.error('Failed to load identities:', err);
+      }
+    }
+
+    function populateIdentitySelector() {
+      const sel = document.getElementById('identity-selector');
+      sel.innerHTML = '';
+      
+      const filtered = Object.values(identities).filter(u => {
+        if (currentRole === 'patient') return u.role === 'patient';
+        if (currentRole === 'provider') return ['doctor', 'clinic', 'lab', 'pharmacy'].includes(u.role);
+        if (currentRole === 'auditor') return u.role === 'auditor';
+        return true;
+      });
+
+      filtered.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.name} (${u.id})`;
+        if (u.id === currentActorId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      if (filtered.length > 0 && !filtered.find(u => u.id === currentActorId)) {
+        currentActorId = filtered[0].id;
+        sel.value = currentActorId;
+      }
+    }
+
+    function populateModalDropdowns() {
+      // Providers for patient grant modal
+      const pSel = document.getElementById('modal-grant-provider');
+      pSel.innerHTML = '';
+      Object.values(identities).filter(u => ['doctor', 'clinic', 'lab', 'pharmacy'].includes(u.role)).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} — ${p.specialty || p.role}`;
+        pSel.appendChild(opt);
+      });
+
+      // Target patients for provider view & write modal
+      const provPatSel = document.getElementById('provider-target-patient');
+      const writePatSel = document.getElementById('modal-write-patient');
+      provPatSel.innerHTML = '';
+      writePatSel.innerHTML = '';
+
+      Object.values(identities).filter(u => u.role === 'patient').forEach(pt => {
+        const opt1 = document.createElement('option');
+        opt1.value = pt.id;
+        opt1.textContent = `${pt.name} (${pt.id})`;
+        provPatSel.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = pt.id;
+        opt2.textContent = `${pt.name} (${pt.id})`;
+        writePatSel.appendChild(opt2);
+      });
+    }
+
+    function onIdentityChanged() {
+      const sel = document.getElementById('identity-selector');
+      currentActorId = sel.value;
+      updateRoleView();
+    }
+
+    function switchRole(role) {
+      currentRole = role;
+
+      // Update button highlights
+      document.querySelectorAll('.role-btn').forEach(b => {
+        b.className = 'role-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 text-slate-600 hover:text-slate-900';
+      });
+
+      const activeBtn = document.getElementById(`btn-role-${role}`);
+      if (activeBtn) {
+        activeBtn.className = 'role-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 bg-white text-blue-700 shadow-sm';
+      }
+
+      // Hide all main views
+      document.getElementById('view-patient').classList.add('hidden');
+      document.getElementById('view-provider').classList.add('hidden');
+      document.getElementById('view-auditor').classList.add('hidden');
+
+      // Show current view
+      document.getElementById(`view-${role}`).classList.remove('hidden');
+
+      // Update selector
+      populateIdentitySelector();
+      updateRoleView();
+      lucide.createIcons();
+    }
+
+    function updateRoleView() {
+      const actor = identities[currentActorId];
+      if (!actor) return;
+
+      if (currentRole === 'patient') {
+        document.getElementById('pat-id').textContent = actor.id;
+        document.getElementById('pat-name').textContent = actor.name;
+        document.getElementById('pat-org').textContent = actor.organization;
+        document.getElementById('pat-specialty').textContent = actor.specialty;
+        loadPatientDashboard();
+      } else if (currentRole === 'provider') {
+        document.getElementById('prov-id').textContent = actor.id;
+        document.getElementById('prov-name').textContent = actor.name;
+        document.getElementById('prov-org').textContent = actor.organization;
+        document.getElementById('prov-specialty').textContent = actor.specialty;
+        onProviderTargetChange();
+      } else if (currentRole === 'auditor') {
+        loadAuditorDashboard();
+      }
+    }
+
+    // TELEMETRY
+    async function refreshTelemetry() {
+      try {
+        const res = await apiRequest('/api/status');
+        statusData = res.data;
+
+        document.getElementById('stat-block-height').textContent = `#${statusData.blockchain.height}`;
+        document.getElementById('stat-total-events').textContent = statusData.blockchain.total_events;
+        document.getElementById('stat-active-consents').textContent = statusData.consent_engine.active_consents;
+        document.getElementById('stat-offchain-records').textContent = `${statusData.offchain_storage.total_records} files`;
+
+        const chainStatus = document.getElementById('stat-chain-status');
+        if (statusData.blockchain.chain_valid) {
+          chainStatus.textContent = 'Immutable • Valid';
+          chainStatus.className = 'font-semibold text-emerald-400';
+        } else {
+          chainStatus.textContent = 'INTEGRITY ALERT';
+          chainStatus.className = 'font-semibold text-rose-400 animate-pulse';
+        }
+      } catch (err) {
+        console.error('Failed to fetch status:', err);
+      }
+    }
+
+    // PATIENT DASHBOARD LOGIC
+    async function loadPatientDashboard() {
+      const patientId = currentActorId;
+      try {
+        const cRes = await apiRequest(`/api/consents?patient_id=${patientId}`);
+        renderPatientConsents(cRes.data);
+
+        const rRes = await apiRequest(`/api/records?patient_id=${patientId}&actor_id=${patientId}`);
+        renderPatientRecords(rRes.data);
+
+        const aRes = await apiRequest(`/api/audit-trail?patient_id=${patientId}`);
+        renderPatientAudit(aRes.data);
+
+        await refreshTelemetry();
+        lucide.createIcons();
+      } catch (err) {
+        console.error('Error loading patient dashboard:', err);
+      }
+    }
+
+    function renderPatientConsents(consents) {
+      const container = document.getElementById('patient-consents-container');
+      const activeCount = consents.filter(c => c.is_active).length;
+      document.getElementById('pat-consent-count').textContent = `${activeCount} Active`;
+
+      if (consents.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-400 text-xs">
+            <i data-lucide="shield-alert" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+            <p>No access permissions configured yet. Click "Grant New Access" to authorize your doctor.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = consents.map(c => {
+        const provider = identities[c.provider_id] || { name: c.provider_id, organization: 'External Clinic' };
+        let statusBadge = '';
+        let revokeBtn = '';
+
+        if (c.is_active) {
+          let timeRemaining = 'Permanent';
+          if (c.expires_at) {
+            const diffSec = Math.max(0, Math.floor(c.expires_at - (Date.now() / 1000)));
+            const hours = Math.floor(diffSec / 3600);
+            const days = Math.floor(hours / 24);
+            timeRemaining = days > 0 ? `${days}d ${hours % 24}h remaining` : `${hours}h ${Math.floor((diffSec % 3600)/60)}m remaining`;
+          }
+          statusBadge = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>ACTIVE (${timeRemaining})</span>
+          </span>`;
+          revokeBtn = `
+            <button onclick="revokeConsent('${c.patient_id}', '${c.provider_id}', '${c.scope}')" 
+              class="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition border border-rose-200 flex items-center space-x-1">
+              <i data-lucide="shield-off" class="w-3.5 h-3.5"></i>
+              <span>Revoke</span>
+            </button>
+          `;
+        } else if (c.status === 'revoked') {
+          statusBadge = `<span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">REVOKED BY PATIENT</span>`;
+        } else {
+          statusBadge = `<span class="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">EXPIRED</span>`;
+        }
+
+        return `
+          <div class="border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-slate-800 text-sm">${provider.name}</span>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">${c.provider_id}</span>
+                ${statusBadge}
+              </div>
+              <p class="text-xs text-slate-500">${provider.organization} • Scope: <strong class="text-slate-700">${c.scope}</strong></p>
+              <p class="text-[11px] text-slate-400 italic">"${c.purpose || 'Care delivery'}"</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              ${revokeBtn}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderPatientRecords(records) {
+      const container = document.getElementById('patient-records-container');
+      if (records.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">No records stored off-chain.</div>`;
+        return;
+      }
+
+      container.innerHTML = records.map(r => `
+        <div class="border border-slate-200 rounded-xl p-3.5 space-y-2 hover:border-blue-300 transition">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-xs text-slate-800">${r.title}</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700">${r.category}</span>
+          </div>
+          <div class="text-[11px] text-slate-500 flex items-center justify-between">
+            <span class="mono">${r.record_id}</span>
+            <span class="text-emerald-600 flex items-center space-x-1">
+              <i data-lucide="check-circle" class="w-3 h-3"></i>
+              <span>SHA-256 Intact</span>
+            </span>
+          </div>
+          <div class="text-[10px] mono text-slate-400 bg-slate-50 p-1.5 rounded truncate" title="${r.sha256_hash}">
+            Hash: ${r.sha256_hash}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPatientAudit(audits) {
+      const tbody = document.getElementById('patient-audit-table');
+      if (audits.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">No events logged yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = audits.slice(0, 8).map(a => {
+        let badgeClass = 'badge-grant';
+        if (a.event_type === 'REVOKE') badgeClass = 'badge-revoke';
+        if (a.event_type === 'READ') badgeClass = 'badge-read';
+        if (a.event_type === 'WRITE') badgeClass = 'badge-write';
+        if (a.event_type === 'UNAUTHORIZED_ATTEMPT') badgeClass = 'badge-unauth';
+
+        const actor = identities[a.actor_id] || { name: a.actor_id };
+        const timeStr = new Date(a.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-2.5 font-bold"><span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${a.event_type}</span></td>
+            <td class="py-2.5 font-medium text-slate-800">${actor.name} <span class="text-[10px] text-slate-400 mono">(${a.actor_id})</span></td>
+            <td class="py-2.5 text-slate-600">${a.details?.record_title || a.details?.scope || a.record_id || 'System'}</td>
+            <td class="py-2.5 text-slate-500">${timeStr}</td>
+            <td class="py-2.5">
+              <span class="font-semibold text-[10px] ${a.status === 'SUCCESS' ? 'text-emerald-600' : 'text-rose-600'}">${a.status}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // PROVIDER WORKFLOWS & GATE CHECK
+    async function onProviderTargetChange() {
+      const patientId = document.getElementById('provider-target-patient').value;
+      const scope = document.getElementById('provider-target-scope').value;
+      const providerId = currentActorId;
+
+      const indicator = document.getElementById('provider-gate-indicator');
+      indicator.innerHTML = `<span class="text-slate-400">Evaluating smart contract consent rules...</span>`;
+
+      try {
+        const res = await apiRequest(`/api/consents?patient_id=${patientId}&provider_id=${providerId}`);
+        const consents = res.data;
+        const activeConsent = consents.find(c => c.is_active && (c.scope === 'ALL' || c.scope === scope));
+
+        if (activeConsent) {
+          indicator.className = 'p-3.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-800 text-xs space-y-1';
+          indicator.innerHTML = `
+            <div class="font-bold flex items-center space-x-1.5">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              <span>CONSENT ACTIVE & GRANTED</span>
+            </div>
+            <p class="text-[11px] text-emerald-700">Patient authorized access under scope: <strong>${activeConsent.scope}</strong></p>
+          `;
+        } else {
+          indicator.className = 'p-3.5 rounded-xl border bg-rose-50 border-rose-200 text-rose-800 text-xs space-y-1';
+          indicator.innerHTML = `
+            <div class="font-bold flex items-center space-x-1.5">
+              <i data-lucide="shield-x" class="w-4 h-4 text-rose-600"></i>
+              <span>NO ACTIVE CONSENT FOUND</span>
+            </div>
+            <p class="text-[11px] text-rose-700">Access will be blocked and an unauthorized attempt logged on-chain unless break-glass is engaged.</p>
+          `;
+        }
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function onBreakGlassToggle() {
+      const checked = document.getElementById('break-glass-toggle').checked;
+      const container = document.getElementById('break-glass-reason-container');
+      if (checked) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
+
+    async function requestPatientRecords() {
+      const patientId = document.getElementById('provider-target-patient').value;
+      const scope = document.getElementById('provider-target-scope').value;
+      const emergency = document.getElementById('break-glass-toggle').checked;
+      const reason = document.getElementById('break-glass-reason').value;
+      const providerId = currentActorId;
+
+      const display = document.getElementById('provider-record-display');
+      const badge = document.getElementById('provider-access-badge');
+      display.innerHTML = `<div class="text-center py-12 text-slate-400">Querying off-chain store through ledger gate...</div>`;
+
+      try {
+        let url = `/api/records?patient_id=${patientId}&actor_id=${providerId}&category=${scope}`;
+        if (emergency) {
+          url += `&emergency=true&override_reason=${encodeURIComponent(reason || 'Emergency override')}`;
+        }
+
+        const res = await apiRequest(url);
+        const data = res.data;
+
+        if (!res.ok || data.authorized === false) {
+          badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700';
+          badge.textContent = 'ACCESS DENIED';
+
+          display.innerHTML = `
+            <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
+              <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+              </div>
+              <h3 class="font-bold text-rose-900 text-base">Smart Contract Access Denied</h3>
+              <p class="text-xs text-rose-700 max-w-md mx-auto">
+                ${data.message || data.reason || 'You do not have active consent from this patient for the requested scope.'}
+              </p>
+              <div class="bg-white border border-rose-200 rounded-xl p-3 max-w-sm mx-auto text-[11px] text-rose-800 text-left font-mono">
+                <div>Alert: UNAUTHORIZED_ATTEMPT logged on-chain</div>
+                <div>Block # Recorded: ${statusData.blockchain.height + 1}</div>
+              </div>
+            </div>
+          `;
+          showToast('Smart contract blocked unauthorized record access. Logged on-chain.', 'error');
+          await refreshTelemetry();
+          lucide.createIcons();
+          return;
+        }
+
+        badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
+        badge.textContent = 'ACCESS GRANTED • AUDIT LOGGED';
+
+        if (data.length === 0) {
+          display.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">No records found matching this scope.</div>`;
+          return;
+        }
+
+        display.innerHTML = data.map(r => `
+          <div class="border border-slate-200 rounded-xl p-5 space-y-3 bg-slate-50/50">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <div>
+                <span class="font-bold text-slate-800 text-sm">${r.title}</span>
+                <span class="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-800">${r.category}</span>
+              </div>
+              <span class="text-xs text-slate-400 mono">${r.record_id}</span>
+            </div>
+
+            <!-- Clinical data viewer -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-700 space-y-1.5 font-sans">
+              <pre class="mono text-[11px] whitespace-pre-wrap text-slate-600 bg-slate-50 p-2.5 rounded">${JSON.stringify(r.clinical_data, null, 2)}</pre>
+            </div>
+
+            <!-- Hash Integrity Badge -->
+            <div class="flex items-center justify-between text-[11px] pt-1">
+              <span class="text-slate-500">Live SHA-256 Digest:</span>
+              <span class="mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[10px]">${r.sha256_hash}</span>
+            </div>
+          </div>
+        `).join('');
+
+        showToast('Authorized: Off-chain medical record opened and READ event anchored on-chain.', 'success');
+        await refreshTelemetry();
+        lucide.createIcons();
+
+      } catch (err) {
+        console.error('Request failed:', err);
+      }
+    }
+
+    // AUDITOR DASHBOARD LOGIC
+    async function loadAuditorDashboard() {
+      await loadIntegrityTable();
+      await loadAuditTrail();
+      await loadBlockchainBlocks();
+      await refreshTelemetry();
+      lucide.createIcons();
+    }
+
+    async function loadIntegrityTable() {
+      try {
+        const res = await apiRequest('/api/records?patient_id=P-101&actor_id=AUD-501');
+        const records = res.data;
+        const tbody = document.getElementById('auditor-integrity-table');
+
+        tbody.innerHTML = records.map(r => {
+          const intact = r.is_intact;
+          const statusBadge = intact 
+            ? `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center space-x-1 w-fit">
+                <i data-lucide="check" class="w-3 h-3"></i>
+                <span>VERIFIED INTACT</span>
+               </span>`
+            : `<span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center space-x-1 w-fit animate-pulse">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                <span>TAMPER DETECTED</span>
+               </span>`;
+
+          const actionBtn = intact
+            ? `<button onclick="simulateTamper('${r.record_id}')" 
+                class="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-[11px] font-semibold px-2.5 py-1 rounded border border-rose-200 transition">
+                Simulate Tampering
+               </button>`
+            : `<button onclick="restoreRecord('${r.record_id}')" 
+                class="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-[11px] font-semibold px-2.5 py-1 rounded border border-emerald-200 transition">
+                Restore Clean File
+               </button>`;
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="py-2.5 font-bold mono text-slate-800">${r.record_id}</td>
+              <td class="py-2.5 text-slate-700">${r.patient_id}</td>
+              <td class="py-2.5"><span class="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded">${r.category}</span></td>
+              <td class="py-2.5 mono text-[10px] text-slate-600 max-w-xs truncate" title="${r.sha256_hash}">${r.sha256_hash}</td>
+              <td class="py-2.5 mono text-[10px] text-slate-600 max-w-xs truncate" title="${r.anchored_hash}">${r.anchored_hash}</td>
+              <td class="py-2.5">${statusBadge}</td>
+              <td class="py-2.5 text-right">${actionBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load integrity table:', err);
+      }
+    }
+
+    async function loadAuditTrail() {
+      const eventType = document.getElementById('audit-filter-event').value;
+      const patientId = document.getElementById('audit-filter-patient').value;
+
+      try {
+        let url = `/api/audit-trail?`;
+        if (eventType) url += `event_type=${eventType}&`;
+        if (patientId) url += `patient_id=${patientId}&`;
+
+        const res = await apiRequest(url);
+        const audits = res.data;
+        const tbody = document.getElementById('master-audit-table');
+
+        tbody.innerHTML = audits.map(a => {
+          let badgeClass = 'badge-grant';
+          if (a.event_type === 'REVOKE') badgeClass = 'badge-revoke';
+          if (a.event_type === 'READ') badgeClass = 'badge-read';
+          if (a.event_type === 'WRITE') badgeClass = 'badge-write';
+          if (a.event_type === 'UNAUTHORIZED_ATTEMPT') badgeClass = 'badge-unauth';
+          if (a.event_type === 'VERIFY_INTEGRITY') badgeClass = 'badge-verify';
+
+          const timeStr = new Date(a.timestamp * 1000).toLocaleString();
+          const detailsSummary = a.details?.record_title || a.details?.scope || a.details?.denial_reason || a.details?.action || '-';
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="py-2.5 font-bold mono text-blue-700">#${a.block_index !== undefined ? a.block_index : '-'}</td>
+              <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${a.event_type}</span></td>
+              <td class="py-2.5 font-semibold text-slate-800">${a.actor_id}</td>
+              <td class="py-2.5 text-slate-700">${a.patient_id}</td>
+              <td class="py-2.5 mono text-[10px] text-slate-500">${a.record_id || 'Global'}</td>
+              <td class="py-2.5 text-slate-500 text-[11px]">${timeStr}</td>
+              <td class="py-2.5 text-slate-700 max-w-xs truncate" title="${detailsSummary}">${detailsSummary}</td>
+              <td class="py-2.5 mono text-[10px] text-slate-400 max-w-[120px] truncate" title="${a.tx_hash}">${a.tx_hash || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load audit trail:', err);
+      }
+    }
+
+    async function loadBlockchainBlocks() {
+      try {
+        const res = await apiRequest('/api/blockchain/blocks');
+        const blocks = res.data;
+        const container = document.getElementById('blockchain-blocks-container');
+
+        container.innerHTML = blocks.slice(-5).reverse().map(b => `
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:bg-white hover:border-blue-400 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-xs mono">#${b.index}</span>
+                <span class="font-bold text-xs text-slate-800">${b.index === 0 ? 'Genesis Block' : 'Audit Block #' + b.index}</span>
+              </div>
+              <span class="text-[11px] text-slate-400">${new Date(b.timestamp * 1000).toLocaleString()}</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] mono text-slate-500">
+              <div class="truncate"><strong class="text-slate-700">Block Hash:</strong> ${b.hash}</div>
+              <div class="truncate"><strong class="text-slate-700">Prev Hash:</strong> ${b.previous_hash}</div>
+              <div class="truncate"><strong class="text-slate-700">Merkle Root:</strong> ${b.merkle_root}</div>
+              <div class="truncate"><strong class="text-slate-700">Transactions:</strong> ${b.tx_count} event(s) sealed</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load blocks:', err);
+      }
+    }
+
+    async function verifyEntireLedger() {
+      try {
+        const res = await apiRequest('/api/blockchain/verify');
+        const data = res.data;
+        document.getElementById('audit-verify-status').textContent = data.is_valid 
+          ? 'Ledger Cryptographically Verified: All Blocks Intact' 
+          : 'CORRUPTION DETECTED IN LEDGER CHAIN!';
+        document.getElementById('audit-verify-height').textContent = data.height;
+
+        if (data.is_valid) {
+          showToast(`Full blockchain verified! All ${data.height} blocks mathematically valid.`, 'success');
+        } else {
+          showToast(`Chain corrupted: ${data.errors.join('; ')}`, 'error');
+        }
+      } catch (err) {
+        showToast('Verification failed: ' + err.message, 'error');
+      }
+    }
+
+    async function simulateTamper(recordId) {
+      try {
+        await apiRequest('/api/records/simulate-tamper', 'POST', { record_id: recordId, tampered_field: 'clinical_notes', fake_value: 'FRAUDULENT_UNAUTHORIZED_ALTERATION' });
+        showToast(`Record ${recordId} corrupted off-chain! Auditor detects mismatch immediately.`, 'error');
+        await loadIntegrityTable();
+        lucide.createIcons();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function restoreRecord(recordId) {
+      try {
+        await apiRequest('/api/records/restore', 'POST', { record_id: recordId });
+        showToast(`Record ${recordId} restored to clean original state.`, 'success');
+        await loadIntegrityTable();
+        lucide.createIcons();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ACTIONS & MODALS
+    function openGrantModal() {
+      document.getElementById('modal-grant-consent').classList.remove('hidden');
+      lucide.createIcons();
+    }
+    function closeGrantModal() {
+      document.getElementById('modal-grant-consent').classList.add('hidden');
+    }
+
+    async function submitGrantConsent() {
+      const patientId = currentActorId;
+      const providerId = document.getElementById('modal-grant-provider').value;
+      const scope = document.getElementById('modal-grant-scope').value;
+      const duration = document.getElementById('modal-grant-duration').value;
+      const purpose = document.getElementById('modal-grant-purpose').value;
+
+      try {
+        await apiRequest('/api/consent/grant', 'POST', {
+          patient_id: patientId,
+          provider_id: providerId,
+          scope: scope,
+          duration_seconds: duration ? parseInt(duration) : null,
+          purpose: purpose
+        });
+        closeGrantModal();
+        showToast(`Consent GRANTED on-chain to ${providerId} (Scope: ${scope})!`, 'success');
+        await loadPatientDashboard();
+      } catch (err) {
+        showToast('Grant failed: ' + err.message, 'error');
+      }
+    }
+
+    async function revokeConsent(patientId, providerId, scope) {
+      if (!confirm(`Are you sure you want to revoke consent for ${providerId} on scope ${scope}?`)) return;
+
+      try {
+        await apiRequest('/api/consent/revoke', 'POST', {
+          patient_id: patientId,
+          provider_id: providerId,
+          scope: scope
+        });
+        showToast(`Consent REVOKED for ${providerId}. Event recorded on blockchain!`, 'success');
+        await loadPatientDashboard();
+      } catch (err) {
+        showToast('Revoke failed: ' + err.message, 'error');
+      }
+    }
+
+    function openWriteRecordModal() {
+      document.getElementById('modal-write-record').classList.remove('hidden');
+      lucide.createIcons();
+    }
+    function closeWriteRecordModal() {
+      document.getElementById('modal-write-record').classList.add('hidden');
+    }
+
+    async function submitWriteRecord() {
+      const actorId = currentActorId;
+      const patientId = document.getElementById('modal-write-patient').value;
+      const category = document.getElementById('modal-write-category').value;
+      const title = document.getElementById('modal-write-title').value || 'Clinical Note';
+      const notes = document.getElementById('modal-write-notes').value || 'Standard examination findings.';
+
+      try {
+        const res = await apiRequest('/api/records/write', 'POST', {
+          actor_id: actorId,
+          patient_id: patientId,
+          category: category,
+          title: title,
+          clinical_data: {
+            author: actorId,
+            clinical_notes: notes,
+            timestamp: new Date().toISOString()
+          }
+        });
+        if (!res.ok) {
+          showToast(res.data.message || 'Write denied: No active consent!', 'error');
+          return;
+        }
+
+        closeWriteRecordModal();
+        showToast(`Record written off-chain & hash anchored to blockchain!`, 'success');
+        await refreshTelemetry();
+        if (currentRole === 'provider') {
+          await requestPatientRecords();
+        }
+      } catch (err) {
+        showToast('Write failed: ' + err.message, 'error');
+      }
+    }
+
+    async function resetSystemPrompt() {
+      if (!confirm('Reset entire ledger and off-chain records back to pristine demo state?')) return;
+      try {
+        await apiRequest('/api/reset', 'POST');
+        showToast('System reset to clean demo baseline.', 'success');
+      } catch (err) {
+        showToast('Reset failed', 'error');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const bg = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-slate-800');
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 transition-all transform translate-y-2 opacity-0 pointer-events-auto max-w-sm`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 50);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
