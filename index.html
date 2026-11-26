@@ -94,6 +94,12 @@
           <i data-lucide="fingerprint" class="w-3 h-3"></i>
           <span>3. Catch Data Tampering</span>
         </button>
+
+        <button onclick="runScenario('edit_file')" 
+          class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-2.5 py-1 rounded-lg text-[11px] flex items-center space-x-1 transition shadow-xs">
+          <i data-lucide="edit-3" class="w-3 h-3"></i>
+          <span>4. Edit Record Live</span>
+        </button>
       </div>
 
     </div>
@@ -626,6 +632,113 @@
     </div>
   </div>
 
+  <!-- MODAL: EDIT / UPDATE MEDICAL RECORD -->
+  <div id="modal-edit-record" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+            <i data-lucide="file-edit" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Edit Medical Record (Off-Chain File)</h3>
+            <p class="text-[11px] text-slate-500 font-mono" id="edit-modal-record-id">REC-EHR-101</p>
+          </div>
+        </div>
+        <button onclick="closeEditRecordModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <input type="hidden" id="edit-modal-rec-id-val">
+        <input type="hidden" id="edit-modal-patient-id-val">
+        
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Document Title:</label>
+          <input type="text" id="edit-modal-title" oninput="updateEditHashPreview()"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div id="edit-modal-vitals-box" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <label class="block font-semibold text-slate-700 text-[11px]">Vital Signs (EHR):</label>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500">Blood Pressure:</span>
+              <input type="text" id="edit-modal-bp" oninput="updateEditHashPreview()" placeholder="120/78 mmHg" 
+                class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs text-slate-800 font-medium">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500">Heart Rate:</span>
+              <input type="text" id="edit-modal-hr" oninput="updateEditHashPreview()" placeholder="72 bpm" 
+                class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs text-slate-800 font-medium">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500">BMI:</span>
+              <input type="text" id="edit-modal-bmi" oninput="updateEditHashPreview()" placeholder="22.4" 
+                class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs text-slate-800 font-medium">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Clinical Notes & Assessment:</label>
+          <textarea id="edit-modal-notes" rows="4" oninput="updateEditHashPreview()"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500" 
+            placeholder="Clinical observations, diagnosis, treatment notes..."></textarea>
+        </div>
+
+        <!-- REAL-TIME CRYPTOGRAPHIC INTEGRITY COMPARATOR -->
+        <div class="p-3.5 bg-slate-900 rounded-xl text-white space-y-2.5 font-mono text-[11px]">
+          <div class="flex items-center justify-between text-slate-300 text-[10px]">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span class="font-bold text-white uppercase tracking-wider">Blockchain Hash Comparison</span>
+            </span>
+            <span id="edit-hash-status-badge" class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+              IDENTICAL
+            </span>
+          </div>
+
+          <div class="space-y-1.5">
+            <div>
+              <div class="text-[10px] text-slate-400">On-Chain Registered Hash (Block State):</div>
+              <div id="edit-modal-anchored-hash" class="text-cyan-300 truncate text-[10px]">Loading...</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-slate-400">Live Recomputed SHA-256 (Off-Chain File):</div>
+              <div id="edit-modal-new-hash" class="text-amber-300 truncate text-[10px]">Calculating...</div>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-400 italic pt-1 border-t border-slate-800">
+            Notice how typing any character immediately changes the SHA-256 fingerprint!
+          </p>
+        </div>
+      </div>
+
+      <!-- DEMO ACTIONS -->
+      <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <button onclick="simulateTamperFromModal()" type="button"
+          class="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition flex items-center justify-center space-x-1.5">
+          <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i>
+          <span>Simulate Malicious Tampering</span>
+        </button>
+
+        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <button onclick="closeEditRecordModal()" type="button" 
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+            Cancel
+          </button>
+          <button onclick="submitSaveEditedRecord()" type="button"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition">
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+            <span>Save & Anchor (WRITE Block)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
@@ -898,10 +1011,15 @@
           <p class="text-xs text-slate-600 line-clamp-2">${r.notes || 'Clinical document anchored to off-chain store.'}</p>
           <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-400">
             <span class="font-mono">${r.record_id}</span>
-            <span class="text-emerald-600 font-semibold flex items-center space-x-1">
-              <i data-lucide="shield-check" class="w-3 h-3"></i>
-              <span>SHA-256 Intact</span>
-            </span>
+            <div class="flex items-center space-x-2">
+              <span class="text-emerald-600 font-semibold flex items-center space-x-1">
+                <i data-lucide="shield-check" class="w-3 h-3"></i>
+                <span>SHA-256 Intact</span>
+              </span>
+              <button onclick="openEditRecordModal('${r.record_id}')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition">
+                Edit
+              </button>
+            </div>
           </div>
         </div>
       `).join('');
@@ -1049,7 +1167,13 @@
               <span class="font-bold text-slate-900 text-sm">${r.title}</span>
               <span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">${r.category}</span>
             </div>
-            <span class="text-xs font-mono text-slate-400">${r.record_id}</span>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-mono text-slate-400">${r.record_id}</span>
+              <button onclick="openEditRecordModal('${r.record_id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-teal-300 text-teal-700 hover:bg-teal-50 shadow-2xs flex items-center space-x-1 transition">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                <span>Edit File</span>
+              </button>
+            </div>
           </div>
 
           <!-- Beautiful Clinical Details -->
@@ -1217,7 +1341,193 @@
       } else if (name === 'simulate_tamper') {
         switchRole('auditor');
         tamperRecord('REC-EHR-101');
+      } else if (name === 'edit_file') {
+        switchRole('provider');
+        document.getElementById('identity-selector').value = 'DOC-201';
+        onIdentityChanged();
+        document.getElementById('target-patient-select').value = 'P-101';
+        document.getElementById('target-scope-select').value = 'ALL';
+        onTargetPatientChanged();
+        doctorAccessRecords();
+        setTimeout(() => {
+          openEditRecordModal('REC-EHR-101');
+          showToast('Opened Alice Smith\'s Cardiology Record for live demonstration editing.', 'info');
+        }, 200);
       }
+    }
+
+    // EDIT RECORD OPERATIONS
+    let currentEditingRecord = null;
+
+    async function openEditRecordModal(recordId) {
+      const r = Database.records.find(item => item.record_id === recordId);
+      if (!r) return;
+      currentEditingRecord = r;
+
+      document.getElementById('edit-modal-rec-id-val').value = r.record_id;
+      document.getElementById('edit-modal-patient-id-val').value = r.patient_id;
+      document.getElementById('edit-modal-record-id').textContent = `${r.record_id} • Patient: ${r.patient_id} (${Database.identities[r.patient_id]?.name || ''})`;
+      document.getElementById('edit-modal-title').value = r.title || '';
+      document.getElementById('edit-modal-notes').value = r.notes || '';
+
+      const vitalsBox = document.getElementById('edit-modal-vitals-box');
+      if (r.vitals) {
+        vitalsBox.classList.remove('hidden');
+        document.getElementById('edit-modal-bp').value = r.vitals.bp || '';
+        document.getElementById('edit-modal-hr').value = r.vitals.hr || '';
+        document.getElementById('edit-modal-bmi').value = r.vitals.bmi || '';
+      } else {
+        vitalsBox.classList.add('hidden');
+      }
+
+      document.getElementById('edit-modal-anchored-hash').textContent = r.anchored_hash || r.sha256_hash;
+      await updateEditHashPreview();
+
+      document.getElementById('modal-edit-record').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeEditRecordModal() {
+      document.getElementById('modal-edit-record').classList.add('hidden');
+      currentEditingRecord = null;
+    }
+
+    async function updateEditHashPreview() {
+      if (!currentEditingRecord) return;
+      const title = document.getElementById('edit-modal-title').value;
+      const notes = document.getElementById('edit-modal-notes').value;
+      const bp = document.getElementById('edit-modal-bp')?.value || '';
+      const hr = document.getElementById('edit-modal-hr')?.value || '';
+      const bmi = document.getElementById('edit-modal-bmi')?.value || '';
+
+      // Compute live SHA-256 hash of current input contents
+      const contentStr = JSON.stringify({
+        record_id: currentEditingRecord.record_id,
+        patient_id: currentEditingRecord.patient_id,
+        category: currentEditingRecord.category,
+        title: title,
+        notes: notes,
+        vitals: currentEditingRecord.vitals ? { bp, hr, bmi } : undefined
+      });
+      const newHash = await sha256Hex(contentStr);
+      
+      const newHashDiv = document.getElementById('edit-modal-new-hash');
+      const badge = document.getElementById('edit-hash-status-badge');
+      if (newHashDiv) newHashDiv.textContent = newHash;
+
+      if (newHash === currentEditingRecord.anchored_hash) {
+        badge.className = "px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800";
+        badge.textContent = "IDENTICAL (ON-CHAIN VERIFIED)";
+      } else {
+        badge.className = "px-2 py-0.5 rounded text-[9px] font-bold bg-amber-950 text-amber-400 border border-amber-800 animate-pulse";
+        badge.textContent = "MODIFIED (PENDING CONSENSUS)";
+      }
+    }
+
+    async function submitSaveEditedRecord() {
+      if (!currentEditingRecord) return;
+      const r = currentEditingRecord;
+      const patientId = r.patient_id;
+      const title = document.getElementById('edit-modal-title').value.trim();
+      const notes = document.getElementById('edit-modal-notes').value.trim();
+      const bp = document.getElementById('edit-modal-bp')?.value || '';
+      const hr = document.getElementById('edit-modal-hr')?.value || '';
+      const bmi = document.getElementById('edit-modal-bmi')?.value || '';
+
+      // Verify Smart Contract Write Permission
+      const actorId = currentActorId;
+      const isPatientHimself = actorId === patientId;
+      const hasConsent = Database.consents.some(c => 
+        c.patient_id === patientId && c.provider_id === actorId && c.is_active && (c.scope === 'ALL' || c.scope === r.category)
+      );
+      const isBreakGlass = document.getElementById('doctor-break-glass-toggle')?.checked || false;
+
+      // Check if blocked
+      if (!isPatientHimself && !hasConsent && !isBreakGlass) {
+        // Log unauthorized attempt on-chain
+        Database.blockHeight++;
+        Database.auditEvents.unshift({
+          block_index: Database.blockHeight,
+          event_type: "UNAUTHORIZED_ATTEMPT",
+          actor_id: actorId,
+          patient_id: patientId,
+          record_id: r.record_id,
+          timestamp: Date.now() / 1000,
+          details: `Blocked Write: ${actorId} attempted to edit record ${r.record_id} without patient consent`,
+          status: "ALERT_REJECTED"
+        });
+
+        closeEditRecordModal();
+        showToast(`Write Denied: Smart contract blocked doctor without consent. Logged to Block #${Database.blockHeight}`, 'error');
+        if (currentRole === 'provider') doctorAccessRecords();
+        return;
+      }
+
+      // Authorized update
+      r.title = title || r.title;
+      r.notes = notes || r.notes;
+      if (r.vitals) {
+        r.vitals.bp = bp || r.vitals.bp;
+        r.vitals.hr = hr || r.vitals.hr;
+        r.vitals.bmi = bmi || r.vitals.bmi;
+      }
+      r.version = (r.version || 1) + 1;
+
+      // Recompute and anchor new SHA-256 hash
+      const contentStr = JSON.stringify({
+        record_id: r.record_id,
+        patient_id: r.patient_id,
+        category: r.category,
+        title: r.title,
+        notes: r.notes,
+        vitals: r.vitals
+      });
+      const newHash = await sha256Hex(contentStr);
+      r.sha256_hash = newHash;
+      r.anchored_hash = newHash;
+      r.is_intact = true;
+
+      // Mint on-chain WRITE event
+      Database.blockHeight++;
+      Database.auditEvents.unshift({
+        block_index: Database.blockHeight,
+        event_type: "WRITE",
+        actor_id: actorId,
+        patient_id: patientId,
+        record_id: r.record_id,
+        timestamp: Date.now() / 1000,
+        details: isBreakGlass 
+          ? `Emergency Break-Glass edit on record ${r.record_id} (v${r.version})` 
+          : `Authorized record update ${r.record_id} (v${r.version}) by ${actorId}`,
+        status: "SUCCESS"
+      });
+
+      closeEditRecordModal();
+      showToast(`✓ File updated & new hash anchored in Block #${Database.blockHeight}!`, 'success');
+
+      if (currentRole === 'patient') renderPatientDashboard();
+      else if (currentRole === 'provider') doctorAccessRecords();
+      else if (currentRole === 'auditor') renderAuditorDashboard();
+    }
+
+    async function simulateTamperFromModal() {
+      if (!currentEditingRecord) return;
+      const r = currentEditingRecord;
+      const title = document.getElementById('edit-modal-title').value.trim();
+      const notes = document.getElementById('edit-modal-notes').value.trim();
+
+      // Maliciously modify off-chain file WITHOUT blockchain consensus
+      r.title = title + " [UNAUTHORIZED TAMPER]";
+      r.notes = notes + " (Altered by external unauthorized actor)";
+      r.sha256_hash = await sha256Hex(r.title + r.notes + Date.now());
+      r.is_intact = false;
+
+      closeEditRecordModal();
+      showToast(`⚠️ File tampered off-chain! Hash mismatch. Check the Auditor Console to detect the violation.`, 'error');
+
+      if (currentRole === 'patient') renderPatientDashboard();
+      else if (currentRole === 'provider') doctorAccessRecords();
+      else if (currentRole === 'auditor') renderAuditorDashboard();
     }
 
     // MODAL OPERATIONS
